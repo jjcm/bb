@@ -494,6 +494,92 @@ including attributed render work), react-dom render (~334 ms), TipTap eval
 (zod schema construction in `@bb/domain`, the eager ~280-icon map) — an
 invasive package-level change, deliberately not attempted in this iteration.
 
+---
+
+# Load-time iteration 4 (final spike): zod/module-eval — MISS, Track A stopped
+
+**Verdict: MISS. No product change landed. Track A stopped pending Sol
+keep/ditch.** Environment for every number here: Linux headless Chromium over
+localhost (4× CPU throttle, cold cache, medians of 7 where applicable,
+`apps/app/scripts/measure-load.mjs`). Not Electron.
+
+## Fresh baseline at PR HEAD
+
+`/` route-ready **1,744 ms** median (FCP 848 ms, LCP 1,148 ms) — consistent
+with iteration 3's after-numbers (1,722 ms), so the thread-detail split held.
+The KEEP bar for this spike was ≥5% ⇒ ≥87 ms.
+
+## What the spike measured before writing any product code
+
+New tool committed for this: `apps/app/scripts/measure-chunk-eval.mjs` —
+imports a built chunk's dependencies first, then times the target chunk's
+`import()` alone, isolating parse+compile+execute from render work (the
+sampling profiler conflates them: render frames are attributed to the chunk
+that defines the component).
+
+Marginal module-eval cost at 4× throttle:
+
+| Boot chunk | Contents | Marginal eval |
+| --- | --- | ---: |
+| SDK/api-client chunk (315 KB) | hono client, @bb/server-contract zod schemas, 88 api modules, tanstack | **262 ms** |
+| domain chunk (268 KB) | @bb/domain zod schemas, ~280-icon hugeicons map | **158 ms** |
+| react-dom chunk (181 KB) | react-dom + scheduler | **9 ms** |
+
+So: the react-dom chunk's ~334 ms of profiler self-time is render work, not
+eval (only rendering less UI would cut it — product-level, no API-safe
+boundary). The real module-eval hotspot is **~420 ms of zod-dominated schema
+construction across @bb/server-contract and @bb/domain**, spread over 60+
+files and hundreds of schemas (63 in `provider-event.ts` alone) — no single
+pathological schema to wrap.
+
+## Why this is a miss, not a fix
+
+1. **The cheap lever doesn't exist.** The repo is already on zod 4.3.6, the
+   fast-initialization major version. There is no upgrade win left.
+2. **Deferral cannot beat the bar even in theory.** Lazy schema construction
+   (getter/Proxy wrappers) only moves the work from module evaluation
+   (~600 ms mark in the load) to first `parse()` — and the first API response
+   the composer waits on (sidebar-bootstrap) arrives at ~790 ms, well before
+   the composer commits at ~1,744 ms. The construction cost stays inside the
+   pre-route-ready window either way; net route-ready gain ≈ 0, minus
+   permanent per-use proxy overhead.
+3. **The only shapes available are the stop-rule's "too invasive to land":**
+   a wholesale lazy-schema rewrite across two contract packages (every
+   consumer of @bb/domain and @bb/server-contract touched, against the
+   repo's validate-at-boundaries conventions) for a gain measured to be near
+   zero. Not attempted; nothing to revert.
+
+Other remaining costs, quantified and also not viable this spike: react-dom
+render ~334 ms (render less — product change), parse/compile ~276 ms (ship
+less boot JS — the remaining boot content is used before first paint), the
+icon map (inside the 158 ms domain chunk; array-literal data, minor share).
+
+## Cumulative Track A table (Linux Chromium, 4× throttle, medians)
+
+| Iteration | `/` route-ready | Result |
+| --- | ---: | --- |
+| Original baseline | 2,494 ms | — |
+| pierre/Shiki/KaTeX out of route closure | 2,278–2,319 ms | KEEP |
+| Plugin-frontend idle deferral | 1,836 ms | KEEP |
+| Lazy ThreadDetailView | 1,722–1,744 ms | KEEP |
+| zod/module-eval spike | 1,744 ms (unchanged) | **MISS — stopped** |
+
+Cumulative kept improvement: **2,494 → 1,744 ms (−30%)**, plus FCP
+920 → 848 ms and LCP 1,236 → 1,148 ms, plus the composer-paste keepers.
+
+## Leftover candidates (for a future track, none API-safe/cheap)
+
+- Render less before composer commit (react-dom ~334 ms): needs product
+  decisions about what the shell paints first.
+- Ship less boot JS (parse/compile ~276 ms): needs feature-level auditing of
+  the SDK client and entry (all currently used pre-paint).
+- Zod init cost (~420 ms eval): upstream zod performance, or codegen'd
+  validators for the hottest contracts — a deliberate architecture change.
+- Electron-side unknowns: everything here is Linux Chromium; strago steps in
+  this document remain the source of truth for real Electron numbers.
+
+**Track A stopped pending Sol keep/ditch.**
+
 ## Filtered revision verification
 
 - Targeted composer/draft regression tests: 162 passed.
