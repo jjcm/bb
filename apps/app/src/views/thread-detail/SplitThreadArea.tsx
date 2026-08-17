@@ -72,21 +72,30 @@ import {
 } from "./PaneContext";
 import { RootComposeView } from "@/views/RootComposeView";
 
-// Lazy pane content views. A pane renders exactly one of thread detail, root
-// compose, or a plugin panel, but a static import would put thread detail
-// (timeline + secondary panels — the largest view) and the plugin bridge
-// into the one workspace route chunk that gates every session's first
-// paint. With ThreadDetailView lazy, the default `/` route parses only the
-// compose graph; a thread URL fetches the thread chunk in parallel and
-// parses both. RootComposeView deliberately stays static: splitting it too
-// re-fragments small shared modules into extra boot chunks (measured +9 KB
-// brotli on the boot budget) for no `/` win, since `/` needs it
-// immediately anyway.
-const ThreadDetailView = lazy(() =>
-  import("./ThreadDetailView").then((module) => ({
-    default: module.ThreadDetailView,
-  })),
-);
+// Thread detail is imported statically even though it is the largest pane
+// view, because making it lazy is measurably worse for the person using the
+// app. A React.lazy boundary here does not just add a request: the Suspense
+// retry renders the pane at transition priority, so the mount is sliced across
+// thousands of scheduler tasks. Measured on the production build in headless
+// Chromium (scripts/measure-warm-nav.mjs, interleaved A/B, n=30 per arm): the
+// first thread opened in a session took 469 ms lazy versus 242 ms static
+// (−227 ms, −48%), and prefetching the chunk during idle recovered only 7 ms
+// of that — the cost is the suspend, not the bytes.
+//
+// Nothing paid for it on the cold side: first paint of the sidebar and New
+// thread is unchanged (the shell paints long before this chunk mattered), and
+// the root composer actually reached "Ask anything." 52 ms sooner, because the
+// route wave is 22 chunks instead of 26. The tradeoff that remains is real but
+// narrow: a session that never opens a thread still downloads and parses this
+// view as part of the workspace route chunk.
+//
+// RootComposeView is static for its own reason: splitting it re-fragments
+// small shared modules into extra boot chunks (measured +9 KB brotli) for no
+// win, since `/` needs it immediately anyway.
+import { ThreadDetailView } from "./ThreadDetailView";
+
+// The plugin panel stays lazy: it is a deep-link-only surface, so no ordinary
+// navigation pays its suspend.
 const PluginPanelView = lazy(() =>
   import("@/views/PluginPanelView").then((module) => ({
     default: module.PluginPanelView,

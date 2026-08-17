@@ -496,6 +496,402 @@ invasive package-level change, deliberately not attempted in this iteration.
 
 ---
 
+# Track C: warm in-browser SPA navigation — one KEEP (−48% on first thread open)
+
+Tracks A and B both optimized the cold load. This track measures the other
+half of the hosted web app, and the half a user spends nearly all their time
+in: the SPA is **already up** and they click something. Environment for every
+number in this section: **production build, headless Chromium on Linux over
+localhost against the real bb server. Not Electron, not Vite dev.**
+
+It also answers the question Track A left open. Jacob's framing was that a warm
+thread open is "where Track A's lazy ThreadDetailView / pierre / Shiki /
+plugin-frontend should actually show, or fail to". One of them showed — as a
+cost, not a win.
+
+## The finish line
+
+`apps/app/scripts/measure-warm-nav.mjs`, 1440x900, cache disabled, fresh
+browser profile per run, no CPU throttle, seeded database (12 projects /
+400 threads / ~120k events).
+
+Each run loads `/` and waits until the shell is genuinely settled — sidebar and
+New thread painted, root composer painted, then a quiet beat — and only then
+clicks, timing from the in-page `mousedown` until the destination content is
+painted:
+
+| Probe | What it measures |
+| --- | --- |
+| `threadOpen1` | **Primary.** First thread opened in the session. |
+| `threadOpen2` | A second, different thread; per-thread work without one-time cost. |
+| `newThread` | Back to the root composer, `Ask anything.` painted. |
+| `settings` | A heavy non-thread view, as a third probe. |
+
+Markers land on the frame *after* the DOM condition first holds, so a number
+means the browser painted it. Every verdict below is **interleaved A/B** — two
+prebuilt dists alternating round by round, n=18–30 per arm — because
+single-build medians on this VM drift by more than most changes are worth.
+
+## Warm baseline at PR HEAD
+
+| Probe | Median |
+| --- | ---: |
+| `threadOpen1` | **469 ms** |
+| `threadOpen2` | 213 ms |
+| `newThread` | 107 ms |
+| `settings` | 152 ms |
+
+`--counters` splits the primary probe with Chromium's own counters:
+of `threadOpen1`'s 471 ms, ~305 ms is busy main thread (script 170 ms, style
+recalc 82 ms across ~45 recalculations, layout 8 ms) and ~165 ms is idle. A
+`devtools.timeline` trace of the same navigation shows **4,541 top-level tasks**
+— the mount is sliced across thousands of React scheduler yields, so wall time
+exceeds CPU time.
+
+Two Track A keeps provably cannot show on this path and were not credited or
+blamed: no pierre/Shiki/KaTeX chunk loads at all during a thread open (the
+fixture's threads contain no file diffs, so those islands never mount), and the
+plugin frontends have already booted during the settle window.
+
+## MISS — prefetch the lazy thread-pane chunk during idle
+
+If the first thread open pays a chunk round trip, warm the module while nothing
+is happening. Scheduled like `usePluginFrontendBoot` (short timer to skip the
+false-idle window, then `requestIdleCallback`).
+
+| Probe | baseline | after | Delta |
+| --- | ---: | ---: | ---: |
+| `threadOpen1` | 471.2 ms | 464.5 ms | −6.8 ms (−1.4%) |
+| `threadOpen2` | 222.1 ms | 216.3 ms | −5.8 ms |
+| `newThread` | 117.5 ms | 111.8 ms | −5.8 ms |
+| `settings` | 81.0 ms | 74.2 ms | −6.8 ms |
+
+**Reverted.** Note `settings` moved by the same −6.8 ms, and the prefetch cannot
+touch it: the whole column is drift, not effect. At a 1.5 s idle delay the
+prefetch was fully inert (the chunk was still requested *after* the click), and
+even in a deliberately settled session where it had provably run — 52 scripts
+loaded before the probes instead of 50 — it recovered only ~7 ms. **The chunk
+fetch was never the cost:** it overlaps the thread's own API requests, so
+removing it from the click path buys nothing.
+
+## KEEP — thread detail is a static import again
+
+Prefetching ruled out bytes, so the remaining suspect was the `React.lazy`
+boundary itself. A spike replaced it with a static import: **−194.7 ms
+(−41.7%)** on the first thread open. The confirming A/B on the real change,
+n=30 per arm:
+
+| Probe | baseline | after | Delta |
+| --- | ---: | ---: | ---: |
+| `threadOpen1` | 469.0 ms | **241.7 ms** | **−227.3 ms (−48.5%)** |
+| `threadOpen2` | 213.1 ms | 201.8 ms | −11.3 ms (−5.3%) |
+| `newThread` | 107.1 ms | 96.7 ms | −10.5 ms (−9.8%) |
+| `settings` | 151.8 ms | 153.1 ms | +1.4 ms (noise) |
+
+And on the cold path, n=28 per arm with `measure-hud.mjs`:
+
+| Cold metric | baseline | after | Delta |
+| --- | ---: | ---: | ---: |
+| HUD (sidebar + New thread painted) | 416.2 ms | 401.7 ms | −14.5 ms (no regression) |
+| Composer `Ask anything.` after click | 249.5 ms | **197.0 ms** | **−52.5 ms (−21.0%)** |
+
+| Boot payload | baseline | after |
+| --- | ---: | ---: |
+| raw / brotli / chunks | 1669.1 KB / 449.7 KB / 26 | 1666.1 KB / **441.2 KB** / **22** |
+
+### Why the lazy boundary was so expensive
+
+It was never really about the ~30 ms chunk fetch. A `React.lazy` suspend means
+the pane mounts on a **Suspense retry, at transition priority**, so the largest
+view in the app is rendered in sliced, yielding work instead of one pass. That
+is what the 4,541 tasks and the ~165 ms of otherwise unexplained idle in
+`threadOpen1` were. Removing the boundary removes the sliced retry; the
+remaining 242 ms is the render itself, and `threadOpen2` (which never had a
+suspend) barely moved, exactly as that explanation predicts.
+
+Track A reached the opposite conclusion honestly and from real data — it
+measured `/` **route-ready** (promptbox wrapper present) and saw −131 ms. That
+metric has since been retired precisely because it ranks work happening after
+the HUD is already on screen. On every metric now in use, static is better or
+neutral.
+
+### Tradeoffs
+
+- A session that never opens a thread still downloads and parses the thread
+  view as part of the workspace route chunk (~899 KB raw back in that route's
+  static closure). The measurements above say that costs nothing on this rig:
+  cold first paint is unchanged and the cold composer is 52 ms *faster*,
+  because the route wave is 22 chunks instead of 26. On a slow network the
+  extra bytes are a real cost that localhost cannot show — but so was the
+  round trip they replace, and the round trip was on the interaction path
+  while these bytes are not.
+- Boot brotli improved by 8.5 KB. `bundle-budget.json` keeps its current
+  limits and records the new headroom rather than ratcheting onto 441.2 KB,
+  which would leave the next ordinary feature nowhere to land.
+- `PluginPanelView` stays lazy on purpose: it is a deep-link-only surface, so
+  no ordinary navigation pays its suspend.
+
+### What a next warm track should look at (measured, not attempted)
+
+`threadOpen2` at ~202 ms is now the steady-state cost of opening a thread, and
+it is not dominated by any single chunk:
+
+- **~84 ms of style recalculation across ~45 recalcs**, essentially identical on
+  first and second open. Mounting a thread writes ~3,500 attributes, of which
+  ~1,300 are SVG path attributes for ~115 icons, plus `class` on ~768 elements.
+- **~106–125 ms of script**, spread across react-dom render, a scroll/measure
+  helper (~37 ms, doing ~36 `scrollHeight`/`clientHeight`/`clientWidth` reads),
+  and the thread view itself (~10 ms).
+- **~18 API requests per thread open**, in two waves; the second wave fires
+  after the big render pass. Three of them (`system/execution-options`,
+  `environments/status`, `environments/pull-request`) take ~165 ms each but land
+  after the paint, so they do not gate this metric — they would gate a
+  "thread fully interactive" metric.
+
+Cutting further means rendering less or re-rendering less on thread mount,
+which is a product decision, not a bundling one.
+
+---
+
+# Track B: cold browser load to a usable HUD — 3 misses, nothing kept
+
+Track A above optimized `measure-load.mjs` **route-ready** (promptbox wrapper
+present). Jacob then measured Playwright Chromium on macOS against Vite and
+found that metric does not describe what a person waits for: first usable HUD
+was a tie (323 ms main vs 322 ms this branch), and composer-after-New-thread
+was 795 vs 806 ms. The paste keepers are real; boot was not faster in a
+browser. Track A's load keeps could not show, because that harness waited on
+highlighters, plugin frontends, and `ThreadDetailView` — all of which finish
+_after_ the HUD has already painted.
+
+This track re-ran the loop against a new finish line and **kept nothing**: all
+three attempts came in inside noise. What it did produce is a hard measurement
+of where the cold-load time actually goes, which retires two plausible
+theories and quantifies the one real lever.
+
+## The finish line (replaces route-ready)
+
+`apps/app/scripts/measure-hud.mjs` — headless Chromium over localhost against
+the **production** build served by the real bb server, 1440x900, cache
+disabled, a fresh browser profile every run, **no CPU throttle**, seeded
+database (12 projects / 400 threads / ~120k events).
+
+- **Primary — HUD:** first _painted_ frame containing the sidebar and an
+  enabled "New thread" control.
+- **Secondary — composer:** time from clicking "New thread" until the
+  composer's `Ask anything.` placeholder is painted. That placeholder only
+  exists once ProseMirror is constructed and TipTap's placeholder decoration
+  has applied, so it cannot pass on the promptbox wrapper alone — this is a
+  strictly stronger marker than Track A's route-ready.
+- Both markers are recorded on the animation frame _after_ the DOM condition
+  first holds, so a number means "the browser painted it". During a long task
+  no frame callback runs, so a marker lands on the first painted frame after
+  the blocking work, which is what a waiting person feels.
+- Document `load` and HTML TTFB are deliberately not reported: `load` fires
+  before React paints, so it cannot rank HUD changes.
+
+These remain Linux-Chromium-on-localhost numbers, not Electron and not macOS.
+
+**Run-to-run spread is large on this VM** (single-build medians drifted 405 →
+438 ms across the session for identical bytes), so every keep/ditch decision
+below comes from **interleaved A/B**: the two dists alternate round by round,
+7 runs per round, 3–4 rounds, n=21–28 per arm. Absolute numbers from different
+sections are not comparable; deltas within a section are.
+
+## Baseline at PR #1 HEAD
+
+| Metric                               |                                             Median |
+| ------------------------------------ | -------------------------------------------------: |
+| HUD (sidebar + New thread painted)   | **405 ms** (n=9; later same-build runs 413–448 ms) |
+| Composer `Ask anything.` after click |                                         **222 ms** |
+| FCP                                  |                                             372 ms |
+| Boot payload                         |    1,709 KB raw / 449.7 KB brotli across 26 chunks |
+
+**The HUD is the first paint.** FCP and the HUD land within ~30 ms of each
+other, because the sidebar shell is what paints first. So anything that only
+reorders work _after_ first paint — which is what every Track A keep does —
+cannot move this number by construction.
+
+## Where the 405 ms actually goes (measured, not assumed)
+
+Two independent measurements, both on the production build:
+
+1. **Script waterfall.** All 26 boot chunks finish downloading by ~121 ms on
+   localhost. Everything after that is CPU.
+2. **Per-chunk marginal cost.** A throwaway page imported each boot chunk in
+   dependency order and timed each `import()` alone, so each figure is that
+   chunk's own download+parse+eval with its dependencies already resolved:
+
+| Boot chunk                  | Contents                                                                  |                         Marginal cost |
+| --------------------------- | ------------------------------------------------------------------------- | ------------------------------------: |
+| sdk/contract chunk (322 KB) | `@bb/sdk`, `@bb/server-contract` zod schemas, hono, partysocket, tanstack |                             **77 ms** |
+| domain/ui chunk (274 KB)    | `@bb/domain` zod schemas, `@bb/shared-ui` icon, hugeicons, jotai, react   |                             **59 ms** |
+| entry chunk (343 KB)        | app shell, sidebar, dialogs, cache owners                                 |                                 27 ms |
+| 23 remaining boot chunks    | —                                                                         | ~40 ms total (≈2 ms fetch floor each) |
+|                             |                                                                           |                **~250 ms sequential** |
+
+Budget for the 405 ms: ~120 ms HTML + boot download (overlapping compile),
+~200 ms module evaluation, ~80 ms React render/commit/paint. **Module
+evaluation is the dominant bucket, and it is dominated by zod.**
+
+## The ceiling: zod schema construction is 18% of the HUD
+
+Aliasing `zod` to a no-op chainable stub keeps the whole module graph and every
+`z.object({...})` call site, and removes only zod's own construction work:
+
+| Arm                          | HUD median |                 Delta |
+| ---------------------------- | ---------: | --------------------: |
+| unmodified                   |     418 ms |                     — |
+| all zod construction stubbed |   342.6 ms | **−75.4 ms (−18.0%)** |
+
+Scoping the stub to one package at a time attributes it:
+
+| Scope                      | HUD median |                                         Delta |
+| -------------------------- | ---------: | --------------------------------------------: |
+| unmodified                 |   448.4 ms |                                             — |
+| `@bb/server-contract` only |   401.4 ms | **−47.0 ms (−10.5%)**, plus composer −14.8 ms |
+
+So ~75 ms of the cold HUD is spent constructing zod schemas that the first
+paint never validates anything against, and `@bb/server-contract` is 47 ms of
+it. **This confirms the standing hypothesis that production bundle
+parse/eval sits on the HUD's critical path** — and it is also why Track A
+iteration 4 filed zod as a miss without contradiction: on _route-ready_ the
+construction stayed inside the pre-ready window either way, so deferring it
+netted zero. On _first paint_ the same work is directly in front of the user.
+
+## Attempt 1 — `sideEffects: false` on the schema packages: MISS
+
+`@bb/domain` and `@bb/server-contract` are declaration-only, but neither
+declared `sideEffects`, so a bundler had to keep every schema module any
+barrel import reached. Adding the flag.
+
+| Metric                 |       baseline |          after |            Delta |
+| ---------------------- | -------------: | -------------: | ---------------: |
+| HUD (n=28 interleaved) |       413.5 ms |       401.5 ms | −12.0 ms (−2.9%) |
+| Composer               |       233.8 ms |       246.8 ms |         +13.0 ms |
+| Boot payload           | 1,709.1 KB raw | 1,702.7 KB raw |          −6.4 KB |
+
+Below the bar, and the composer moved the wrong way. **Reverted.** The flag
+did work — it re-partitioned the chunks and dropped domain's schema modules
+out of the domain chunk — but the same modules stayed eager through
+`@bb/server-contract`, which imports them anyway.
+
+## Attempt 2 — one boot chunk instead of 26: MISS
+
+Rolldown's automatic splitting gives every module set shared between the entry
+and a lazy route its own chunk. For the entry's _own_ static closure that is
+overhead: all of it must arrive, compile, and evaluate before React can render
+a frame, so splitting buys nothing and costs a request each plus a worse
+brotli ratio. A ~60-line build plugin assigned the entry's static closure to a
+single chunk (lazy boundaries untouched).
+
+| Metric                 |                    baseline |                          after |                Delta |
+| ---------------------- | --------------------------: | -----------------------------: | -------------------: |
+| HUD (n=28 interleaved) |                    405.8 ms |                       403.5 ms |      −2.3 ms (−0.6%) |
+| Composer               |                    229.7 ms |                       237.8 ms |              +8.0 ms |
+| Boot payload           | 449.7 KB brotli / 26 chunks | **407.4 KB brotli / 3 chunks** | **−42.3 KB (−9.4%)** |
+
+**Reverted** — it does not move the finish line, because on localhost the
+whole boot payload arrives in ~100 ms and the constraint is CPU, not requests.
+
+**Worth someone's time anyway, on a different track:** −42.3 KB brotli and 23
+fewer cold requests is a real win on a real network, and it is exactly the
+reconsolidation `bundle-budget.json` asks for when it says to lower the
+ratchet. It cannot be demonstrated on this rig, so it is recorded here rather
+than landed on a metric it does not serve.
+
+## Attempt 3 — the route table out of the client's parse path: MISS
+
+`packages/server-contract/src/public-api.ts` held both `createApiClient` and
+`publicApiRoutes`, a ~1,400-line table of ~300 route descriptors referencing
+essentially every request schema in the contract. Only `apps/server` uses that
+table as a _value_; the client needs it solely at type level
+(`ApiSchemaFromRouteDescriptors<typeof publicApiRoutes>`). It was split into
+`public-api-routes.ts` (value) plus a type-only import from `public-api.ts`,
+with `sideEffects: false` and a `./public-api` subpath export.
+
+| Metric                 |       baseline |          after |            Delta |
+| ---------------------- | -------------: | -------------: | ---------------: |
+| HUD (n=28 interleaved) |       434.6 ms |       423.8 ms | −10.8 ms (−2.5%) |
+| Composer               |       234.1 ms |       248.2 ms |         +14.1 ms |
+| Boot payload           | 1,709.1 KB raw | 1,698.3 KB raw |         −10.8 KB |
+| Total boot eval        |        ~250 ms |        ~262 ms |             none |
+
+Structurally it worked: the route table is provably absent from the built
+client (no route path strings remain in any chunk). It still misses, because
+the table's cost was never _its own_ ~300 cheap `defineRoute` calls — it was
+the schemas it referenced, and those stay for other reasons. **Reverted.**
+
+### Why tree-shaking cannot finish this job
+
+Pushing attempt 3 further, as a spike: every static schema import was removed
+from all 9 `@bb/sdk` area modules plus the 5 eager app modules that reach
+`api/*`, and `createApiClient` was moved to a subpath. Tree-shaking then did
+drop `api/environments`, `api/hosts`, `api/plugins`, `api/projects`,
+`api/skills`, `api/system`, `api/terminals`, `api/thread-tabs`, `api-types`,
+and `thread-timeline` from the boot graph — and the result was still
+1,681 KB raw (−28 KB) with **~248 ms of boot eval, i.e. unchanged**.
+
+Two lessons:
+
+- **Bytes are not the cost here.** Zod schemas are compact source and
+  expensive construction; ~28 KB of removed source carried ~0 ms of removed
+  evaluation, while a 222 KB VSCode-theme JSON blob in the same payload
+  evaluates in ~15 ms.
+- **`z.object(...)` is a call the bundler cannot prove pure**, so an unused
+  schema in an otherwise-used module is retained even under
+  `sideEffects: false`. Setting rolldown's
+  `treeshake.manualPureFunctions: ["z"]` was also tried: −15 KB raw and boot
+  eval ~250 → ~243 ms, still inside noise, because chained builders
+  (`z.object({...}).strict()`) are member calls on the result and stay impure.
+  One eager import of a plain number constant from `api/threads.ts` is enough
+  to retain that module and, transitively, most of the api schema graph.
+
+So the 47 ms behind `@bb/server-contract` is reachable only by making the whole
+eager graph stop reaching it — a lazy `sdk`/`apiClient` seam across roughly 15
+files in two packages plus the app, with every `queryFn`/`mutationFn` resolving
+the client asynchronously. That was measured, scoped, and deliberately **not
+attempted** inside this timebox: it changes when the first sidebar request
+starts, needs `unknown`/cast-free typing that the repo's conventions ask for,
+and could not have been verified properly in the time left.
+
+## Result
+
+**Nothing product-side was kept, and the cold HUD is not faster in a browser.**
+
+| Metric                    | PR #1 HEAD baseline |                         Final (unchanged) |
+| ------------------------- | ------------------: | ----------------------------------------: |
+| HUD                       |        405 ms (n=9) | 438 ms (n=15, later session — same bytes) |
+| Composer after New thread |              222 ms |                                    239 ms |
+
+The 405 → 438 ms difference is VM drift on identical bytes, not a regression;
+it is the reason every decision above used interleaved A/B rather than
+comparing across sections.
+
+Paste keepers are untouched and verified: the gated paste microbenchmark
+passes at 128 KB, 512 KB, and 1 MB, and the full `@bb/app` suite passes.
+
+### What a next track should try, in measured priority order
+
+1. **Defer `@bb/server-contract` past first paint** — measured ceiling
+   −47 ms (−10.5%) on the HUD plus −14.8 ms on the composer. Needs the lazy
+   `sdk`/`apiClient` seam described above. This is the only lever on this rig
+   that is clearly worth its complexity.
+2. **The rest of zod construction (`@bb/domain`)** — the remaining ~28 ms of
+   the 75 ms ceiling. Harder: the domain barrel is legitimately reached by
+   many eager modules, so this needs subpath imports or lazily-constructed
+   schemas, not a single seam.
+3. **React first render/commit, ~80 ms** — unchanged from Track A's finding.
+   Needs product decisions about what the shell paints first.
+4. **Boot chunk reconsolidation (attempt 2)** — for a network-bound metric,
+   not this one. −42.3 KB brotli, 23 fewer requests, ratchet lowerable to
+   ~410 KB.
+
+Do not re-run this loop against `measure-load.mjs` route-ready. It ranks work
+that happens after the HUD is already on screen.
+
+---
+
 # Load-time iteration 4 (final spike): zod/module-eval — MISS, Track A stopped
 
 **Verdict: MISS. No product change landed. Track A stopped pending Sol

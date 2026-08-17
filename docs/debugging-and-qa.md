@@ -58,6 +58,60 @@ payloads. Use it to reproduce performance problems that only appear at scale.
   deletes the database file first. Without `--reset` the fixture appends.
 - Example: `pnpm seed:perf -- --reset --events 400000`.
 
+## Cold Load Measurement
+
+Three harnesses in `apps/app/scripts`, all headless-Chromium-over-localhost
+against a **production** build served by the real bb server. None produces
+Electron or macOS numbers; treat them as relative before/after signals.
+
+- `measure-hud.mjs` measures what a person waiting on a cold load waits for:
+  time until the sidebar and an enabled "New thread" control are **painted**
+  (primary), and time from clicking "New thread" until the composer's
+  `Ask anything.` placeholder is painted (secondary). Fresh browser profile and
+  disabled cache per run, 1440x900, no CPU throttle by default.
+
+  ```bash
+  cd apps/app
+  node scripts/measure-hud.mjs --base http://127.0.0.1:38886 --runs 9 --label after
+  ```
+
+  Add `--profile` to attribute main-thread self time until the HUD paints,
+  `--waterfall` for the script waterfall, `--hud-only` to skip the click leg,
+  and `--json out.json` to keep the samples. Sampling perturbs timing, so never
+  compare a profiled run's HUD number against an unprofiled one.
+
+- `measure-warm-nav.mjs` measures the warm path, which is where a session
+  actually spends its time. Each run loads `/`, waits until the shell is
+  settled, then clicks: first thread open (primary), a second thread, back to
+  the root composer, and settings — timing each from the in-page `mousedown`
+  until the destination content is painted.
+
+  ```bash
+  cd apps/app
+  node scripts/measure-warm-nav.mjs --base http://127.0.0.1:38886 --runs 6 --label after
+  ```
+
+  `--counters` splits each probe into script, style-recalc and layout time from
+  Chromium's own counters, which is usually the fastest way to tell "we run too
+  much JS" from "we invalidate style too often". `--profile <probe>` samples one
+  probe's window, `--settle <ms>` changes how long the shell is left alone
+  before clicking, and `--waterfall` shows the chunks and API calls each probe
+  triggered.
+
+- `measure-load.mjs` measures FCP/LCP plus a per-route DOM "route-ready"
+  marker. Its `/` marker is the promptbox _wrapper_, which appears well after
+  the HUD has painted, so it ranks post-first-paint work and is the wrong tool
+  for both questions above. It is what led to making the thread pane lazy, a
+  decision the warm harness later reversed.
+
+Run-to-run spread on a shared VM is easily ±10%, which is larger than most
+single changes. Decide keeps by alternating two prebuilt `dist` directories
+round by round and comparing medians over 20+ samples per arm, not by comparing
+one run against a number from an earlier session.
+
+`KEEP_DITCH.md` records what these harnesses have and have not been able to
+move, with the measured cost breakdown of the `/` cold load.
+
 ## Local Cloud
 
 Run the Cloud dashboard and Connect worker against one local D1 database:
