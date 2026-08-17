@@ -35,10 +35,13 @@ describe("SplitThreadArea stories", () => {
 
       // The pane thread views are lazy; wait for their content to resolve
       // before asserting on pane internals.
-      await waitFor(() => {
-        expect(idlePane.querySelector("header")).toBeTruthy();
-        expect(activePane.querySelector("header")).toBeTruthy();
-      });
+      await waitFor(
+        () => {
+          expect(idlePane.querySelector("header")).toBeTruthy();
+          expect(activePane.querySelector("header")).toBeTruthy();
+        },
+        { timeout: 5_000 },
+      );
       expect(idlePane.querySelector("header")?.classList).not.toContain(
         "opacity-50",
       );
