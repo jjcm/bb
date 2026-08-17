@@ -18,6 +18,25 @@
  * repeats on EVERY subsequent keystroke/selection change while that text sits
  * in the prompt box. DOM/layout cost (ProseMirror view updates, line wrapping
  * of a 1 MB line) is not measurable here and must be profiled in Electron.
+ *
+ * Some rows measure primitives that were REMOVED from the per-keystroke path
+ * (value-key JSON.stringify, per-keystroke draft serialization, synchronous
+ * decoration rebuilds on large docs, full-document trigger scans); they are
+ * kept so the cost being avoided stays visible. See each row's label.
+ *
+ * Manual Electron repro (macOS):
+ * 1. Build/run the desktop app on the target machine.
+ * 2. Generate the fixture file (command above) and copy its contents
+ *    (a single ~1 MB line of minified-JS-shaped text) to the clipboard,
+ *    e.g. `cat /tmp/minified-paste-fixture.js | pbcopy`.
+ * 3. Open a thread, focus the composer, start a Performance recording in
+ *    DevTools (or `--trace-startup`-style tracing), paste, then type ~20
+ *    characters and scroll the thread.
+ * 4. Compare against the same recording on the baseline build: long tasks on
+ *    paste, per-keystroke main-thread time, dropped frames while typing, and
+ *    input latency (Interactions track). Rich-text Markdown preference ON is
+ *    the worst case for paste/mount; default settings exercise the
+ *    per-keystroke path.
  */
 import { writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -146,10 +165,10 @@ describe.runIf(PERF_ENABLED)("composer large minified-JS paste", () => {
       lines.push(`keystroke: full-doc serialize (×1)     ${formatMs(serializeMs)}ms`);
 
       const valueKeyMs = measureMs(7, () => JSON.stringify(value));
-      lines.push(`keystroke: JSON.stringify value key    ${formatMs(valueKeyMs)}ms`);
+      lines.push(`value JSON.stringify (2×/keystroke pre-fix; now ref-compare) ${formatMs(valueKeyMs)}ms`);
 
       const decorationRegexMs = measureMs(7, () => findUltracodeRanges(text));
-      lines.push(`keystroke: decoration rule regex       ${formatMs(decorationRegexMs)}ms`);
+      lines.push(`decoration rule regex (sync/keystroke pre-fix; now deferred on large docs) ${formatMs(decorationRegexMs)}ms`);
 
       const caretEditor = {
         state: {
@@ -166,7 +185,7 @@ describe.runIf(PERF_ENABLED)("composer large minified-JS paste", () => {
       const draftSerializeMs = measureMs(7, () =>
         serializePromptDraftStorage(draft),
       );
-      lines.push(`keystroke: draft JSON serialize        ${formatMs(draftSerializeMs)}ms`);
+      lines.push(`draft JSON serialize (per keystroke pre-fix; now per 250ms flush) ${formatMs(draftSerializeMs)}ms`);
 
       console.log(lines.join("\n"));
       expect(richTimedOut || true).toBe(true);
