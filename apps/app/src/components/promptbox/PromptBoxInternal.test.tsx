@@ -556,23 +556,24 @@ describe("suppressPromptEditorAnchorActivation", () => {
 
 describe("PromptBoxInternal controlled value sync", () => {
   it("compares cloned mention values without serializing the prompt text", () => {
+    const resource = {
+      kind: "path" as const,
+      source: "workspace" as const,
+      entryKind: "file" as const,
+      path: "src/a.ts",
+      label: "a.ts",
+    };
     const mention: PromptTextMention = {
       start: 4,
       end: 10,
-      resource: {
-        kind: "path",
-        source: "workspace",
-        entryKind: "file",
-        path: "src/a.ts",
-        label: "a.ts",
-      },
+      resource,
     };
     const left = { text: "see @a.ts", mentions: [mention] };
 
     expect(
       arePromptEditorValuesEqual(left, {
         text: left.text,
-        mentions: [{ ...mention, resource: { ...mention.resource } }],
+        mentions: [{ ...mention, resource: { ...resource } }],
       }),
     ).toBe(true);
     expect(
@@ -581,7 +582,7 @@ describe("PromptBoxInternal controlled value sync", () => {
         mentions: [
           {
             ...mention,
-            resource: { ...mention.resource, path: "src/b.ts" },
+            resource: { ...resource, path: "src/b.ts" },
           },
         ],
       }),
