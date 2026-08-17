@@ -1,0 +1,6 @@
+# App-defined permission for the spike's `ping` command, so the capability can
+# grant it to the remote (http://127.0.0.1) fixture page.
+[[permission]]
+identifier = "allow-ping"
+description = "Allows the ping echo command used for IPC round-trip timing."
+commands.allow = ["ping"]

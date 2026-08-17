@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "spike-tauri-shell",
+  "version": "0.1.0",
+  "identifier": "dev.bb.spike.tauri",
+  "build": {
+    "frontendDist": "../dist-placeholder"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false
+  }
+}

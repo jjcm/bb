@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "spike-remote-fixture",
+  "description": "Allow the spike fixture page (served over local http) to call the ping command.",
+  "windows": ["*"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*", "http://localhost:*"]
+  },
+  "permissions": ["core:default", "allow-ping"]
+}

@@ -1,0 +1,101 @@
+{
+  "args": {
+    "iterations": 1,
+    "scenarios": [
+      "fixture"
+    ]
+  },
+  "electronVersion": "41.7.0",
+  "environment": {
+    "arch": "x64",
+    "date": "2026-08-17T07:44:24.169Z",
+    "display": ":1",
+    "note": "Collected on a headless Linux VM under Xvfb (software rendering) unless stated otherwise. Absolute numbers are not representative of end-user macOS hardware; compare runs on the same machine only.",
+    "platform": "linux"
+  },
+  "fixture": {
+    "aggregate": {
+      "memoryProcessCount": 7,
+      "memoryPssMb": 437.3828125,
+      "memoryRssMb": 782.671875,
+      "pasteBySize": [
+        {
+          "chars": 10000,
+          "sendToFrameMs": 13.01806640625
+        },
+        {
+          "chars": 100000,
+          "sendToFrameMs": 19.66796875
+        }
+      ],
+      "scrollDroppedFramePct": 0,
+      "scrollMeanFrameMs": 19.507348837209296,
+      "scrollP95FrameMs": 33.30000000000018,
+      "startupAppReadyMs": 357,
+      "startupBridgeReadyMs": 734,
+      "startupFcpMs": 727.199951171875,
+      "startupFirstFrameMs": 728.099853515625,
+      "typingP50Ms": -3.467041015625,
+      "typingP95Ms": 14.431152343749998,
+      "windowOpenCreatedMs": 121,
+      "windowOpenFirstFrameMs": 128.300048828125
+    },
+    "iterations": [
+      {
+        "iteration": 1,
+        "metrics": {
+          "input": {
+            "pastes": [
+              {
+                "cdpAckMs": 5,
+                "chars": 10000,
+                "inputToFrameMs": 9.51806640625,
+                "sendToFrameMs": 13.01806640625
+              },
+              {
+                "cdpAckMs": 22,
+                "chars": 100000,
+                "inputToFrameMs": -1.23193359375,
+                "sendToFrameMs": 19.66796875
+              }
+            ],
+            "typing": {
+              "count": 40,
+              "maxMs": 16.053955078125,
+              "meanMs": -4.206597900390625,
+              "minMs": -15.634033203125,
+              "p50Ms": -3.467041015625,
+              "p95Ms": 14.431152343749998,
+              "note": "CDP send → frame after input event, per typed char"
+            }
+          },
+          "memoryProcessCount": 7,
+          "memoryPssMb": 437.3828125,
+          "memoryRssMb": 782.671875,
+          "scroll": {
+            "count": 129,
+            "maxMs": 33.400000000000546,
+            "meanMs": 19.507348837209296,
+            "minMs": 16.5,
+            "p50Ms": 16.699999999999818,
+            "p95Ms": 33.30000000000018,
+            "droppedFramePct": 0,
+            "scrolledPx": 15120.25390625
+          },
+          "startup": {
+            "appReadyMs": 357,
+            "bridgeReadyMs": 734,
+            "fcpMs": 727.199951171875,
+            "firstFrameMs": 728.099853515625,
+            "mainStartMs": 287
+          },
+          "windowOpen": {
+            "createdMs": 121,
+            "firstFrameMs": 128.300048828125
+          }
+        },
+        "spawnEpochMs": 1786952664176
+      }
+    ]
+  }
+}

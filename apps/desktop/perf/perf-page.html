@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>bb desktop perf page</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+      }
+      header {
+        padding: 8px 16px;
+        border-bottom: 1px solid #8884;
+      }
+      #composer {
+        border: 1px solid #8888;
+        border-radius: 6px;
+        margin: 8px 16px;
+        min-height: 80px;
+        max-height: 240px;
+        overflow-y: auto;
+        padding: 8px;
+        white-space: pre-wrap;
+      }
+      #list {
+        height: 55vh;
+        overflow-y: auto;
+        margin: 0 16px;
+        border: 1px solid #8884;
+      }
+      #list > div {
+        padding: 6px 10px;
+        border-bottom: 1px solid #8882;
+      }
+      #status {
+        padding: 8px 16px;
+        font-size: 13px;
+        opacity: 0.7;
+      }
+    </style>
+  </head>
+  <body>
+    <header><strong>bb desktop perf page</strong></header>
+    <div id="composer" contenteditable="true" aria-label="composer"></div>
+    <div id="list"></div>
+    <div id="status">booting…</div>
+    <script>
+      "use strict";
+
+      // Loaded by the real desktop shell (apps/desktop) through
+      // BB_DESKTOP_APP_URL in place of the bb SPA. Reports startup timings to
+      // the harness server on load, and exposes window.__bbPerf* collectors
+      // that the CDP driver calls for the input and scroll scenarios.
+      //
+      // All reported times are epoch milliseconds (performance.timeOrigin +
+      // monotonic offset) so the harness can align them with shell stdout
+      // marks and its own spawn timestamp.
+
+      // performance.timeOrigin + performance.now() drifts from Date.now() by
+      // several ms; calibrate once so page epochs align with Date.now()-based
+      // timestamps taken in the shell and the driver.
+      const clockOffsetMs =
+        Date.now() - performance.timeOrigin - performance.now();
+      const epoch = (perfTime) =>
+        performance.timeOrigin + perfTime + clockOffsetMs;
+      const status = (text) => {
+        document.getElementById("status").textContent = text;
+      };
+
+      const startup = {
+        fcpMs: null,
+        firstRafMs: null,
+        timeOriginMs: performance.timeOrigin,
+      };
+
+      let fcpWaiters = [];
+      try {
+        new PerformanceObserver((entries) => {
+          for (const entry of entries.getEntries()) {
+            if (entry.name === "first-contentful-paint") {
+              startup.fcpMs = epoch(entry.startTime);
+              fcpWaiters.forEach((resolve) => resolve());
+              fcpWaiters = [];
+            }
+          }
+        }).observe({ buffered: true, type: "paint" });
+      } catch {
+        // Paint timing unsupported.
+      }
+
+      function waitForFcp(timeoutMs) {
+        if (startup.fcpMs !== null) {
+          return Promise.resolve();
+        }
+        return new Promise((resolve) => {
+          const timer = setTimeout(resolve, timeoutMs);
+          fcpWaiters.push(() => {
+            clearTimeout(timer);
+            resolve();
+          });
+        });
+      }
+
+      async function waitForDesktopBridge(timeoutMs) {
+        const deadline = performance.now() + timeoutMs;
+        for (;;) {
+          if (
+            typeof window.bbDesktop === "object" &&
+            window.bbDesktop !== null &&
+            typeof window.bbDesktop.getInfo === "function"
+          ) {
+            return Date.now();
+          }
+          if (performance.now() > deadline) {
+            return null;
+          }
+          await new Promise((r) => setTimeout(r, 10));
+        }
+      }
+
+      function buildList(rows) {
+        const list = document.getElementById("list");
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < rows; i += 1) {
+          const div = document.createElement("div");
+          div.textContent =
+            `Row ${i} — the quick brown fox jumps over the lazy dog ` +
+            `(${(i * 7919) % 100000})`;
+          frag.append(div);
+        }
+        list.append(frag);
+      }
+
+      // ---- Collectors driven over CDP -------------------------------------
+
+      let inputSamples = [];
+      let inputCaptureActive = false;
+
+      window.__bbPerfStartInputCapture = () => {
+        const composer = document.getElementById("composer");
+        composer.textContent = "";
+        composer.focus();
+        inputSamples = [];
+        inputCaptureActive = true;
+        return true;
+      };
+
+      window.__bbPerfReadInputSamples = () => {
+        inputCaptureActive = false;
+        const samples = inputSamples;
+        inputSamples = [];
+        return samples;
+      };
+
+      document.getElementById("composer").addEventListener("input", () => {
+        if (!inputCaptureActive) {
+          return;
+        }
+        const inputAt = performance.now();
+        const textLength =
+          document.getElementById("composer").textContent.length;
+        requestAnimationFrame(() => {
+          // Use execution time, not the rAF timestamp argument: the argument
+          // is the frame's vsync time, which can precede the input dispatch
+          // and would make send→frame latencies negative.
+          inputSamples.push({
+            frameEpochMs: epoch(performance.now()),
+            inputEpochMs: epoch(inputAt),
+            textLength,
+          });
+        });
+      });
+
+      let scrollCapture = null;
+
+      window.__bbPerfStartScrollCapture = (durationMs) => {
+        const list = document.getElementById("list");
+        list.scrollTop = 0;
+        const capture = {
+          deltas: [],
+          done: false,
+          startScrollTop: list.scrollTop,
+        };
+        scrollCapture = capture;
+        let last = null;
+        const start = performance.now();
+        function step(t) {
+          if (last !== null) {
+            capture.deltas.push(t - last);
+          }
+          last = t;
+          if (t - start < durationMs) {
+            requestAnimationFrame(step);
+          } else {
+            capture.done = true;
+            capture.endScrollTop = list.scrollTop;
+          }
+        }
+        requestAnimationFrame(step);
+        return true;
+      };
+
+      window.__bbPerfReadScroll = () => {
+        const capture = scrollCapture;
+        scrollCapture = null;
+        return capture;
+      };
+
+      window.__bbPerfListRect = () => {
+        const rect = document.getElementById("list").getBoundingClientRect();
+        return {
+          height: rect.height,
+          width: rect.width,
+          x: rect.x,
+          y: rect.y,
+        };
+      };
+
+      // ---- Startup report ---------------------------------------------------
+
+      async function main() {
+        await new Promise((resolve) => {
+          if (document.readyState !== "loading") {
+            resolve();
+          } else {
+            document.addEventListener("DOMContentLoaded", resolve, {
+              once: true,
+            });
+          }
+        });
+        startup.domContentLoadedMs = Date.now();
+        startup.firstRafMs = await new Promise((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame((t) => resolve(epoch(t)));
+          });
+        });
+        buildList(5000);
+        startup.bridgeReadyMs = await waitForDesktopBridge(10_000);
+        // FCP lands asynchronously after the first paint; give it a moment so
+        // the startup report includes it.
+        await waitForFcp(3000);
+        await fetch("/perf/report", {
+          body: JSON.stringify(startup),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        });
+        status("reported; ready for CDP driver");
+      }
+
+      main().catch((error) => {
+        status(`error: ${error instanceof Error ? error.message : error}`);
+      });
+    </script>
+  </body>
+</html>
