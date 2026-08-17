@@ -5,14 +5,15 @@ Electron desktop shell, and (2) isolated spikes of alternative wrappers
 (Electron `BrowserWindow` vs `BaseWindow`+`WebContentsView`, and Tauri 2 on the
 system webview), measured against the same fixture.
 
-**Verdict up front:** on the metrics that could be measured on this machine, no
-alternative wrapper beats the current Electron shell. The two Electron window
-primitives are equivalent at shell level. Tauri (WebKitGTK on Linux) was ~3×
-slower to first frame, ~14× slower on window-open, used *more* memory by PSS,
-and would drop large parts of the desktop feature set (details below). The
-keep from this track is the harness plus these findings — not a migration.
-macOS (WKWebView) is a different engine and needs the strago runs listed at
-the bottom before Tauri can be ruled out for Mac.
+**Verdict (final — Track B stopped, see `KEEP_DITCH.md`):** no alternative
+wrapper beat the current Electron shell on anything measured. The two Electron
+window primitives are equivalent at shell level. Tauri (WebKitGTK on Linux)
+was ~3× slower to first frame, ~14× slower on window-open, used *more* memory
+by PSS, and would drop large parts of the desktop feature set (details below).
+On macOS (strago), the Electron BrowserWindow baseline was measured (286 ms
+first frame, 86 ms window-open); Mac Tauri/WKWebView could **not** be measured
+(harness invocations could not be rebound by Auto-review), and unmeasured ≠ a
+win. Keep: the harness plus these findings. Ditch: migrating off Electron.
 
 ---
 
@@ -24,8 +25,8 @@ the bottom before Tauri can be ruled out for Mac.
 - Electron 41.7.0 (the exact version `apps/desktop` pins), Tauri 2 (WebKitGTK
   2.44 via `libwebkit2gtk-4.1`), Rust 1.97, Node 22.21 for the bb-app runtime.
 - Absolute numbers are **not** representative of end-user macOS hardware. Use
-  them only to compare shells on this same machine. Anything that needs a real
-  Mac is listed under "What needs a Mac".
+  them only to compare shells on this same machine. Mac evidence and status
+  are under the "macOS strago" addendum and the Mac status section below.
 - All numbers are medians across runs (5 iterations for shell scenarios, 3 for
   full product cold start), each iteration a cold start with fresh user-data,
   cache, and data directories. Raw JSON: `apps/desktop/perf/results/` and
@@ -113,11 +114,38 @@ quantized; read them as "≤ 1–2 ms", same order as Electron.
 3. **Caveats in Tauri's favor, stated honestly:** WebKitGTK under Xvfb software
    rendering is a worst case for it (window-open especially); macOS WKWebView
    is a much better engine and shares framework memory with the OS, so the
-   memory story on Mac could flip. That is exactly what the strago runs below
-   are for. Scroll/IPC were competitive even here.
+   memory story on Mac could flip. The strago run that would have tested this
+   could not be executed (see the macOS addendum below) — so it remains an
+   open caveat, not a win. Scroll/IPC were competitive even here.
 4. **A bare wry shell was not measured separately.** Tauri sits directly on
    wry; its framework overhead on these metrics is small, so a wry-only spike
    would mostly re-measure WebKitGTK.
+
+## Stream 2 addendum — macOS strago (label: Mac, 2026-08-17 ~1:33am PT)
+
+Host: Jacob's Mac (strago), C49RG9x 5120×1440 display. Same harness:
+`experimental/desktop-wrapper-spikes/run-compare.mjs --iterations 5`. The
+memory sampler reads `/proc`, so PSS reports 0 on Mac — no Mac memory numbers.
+
+**Electron 41.7.0 `BrowserWindow`** — 5/5 runs completed:
+
+| run | first frame (ms) | window-open (ms) |
+| --- | ---: | ---: |
+| 1 | 330.3 | 86.2 |
+| 2 | 279.1 | 86.3 |
+| 3 | 281.2 | 85.1 |
+| 4 | 286.3 | 70.0 |
+| 5 | 289.3 | 86.9 |
+| **median** | **286.3** | **86.2** |
+
+**Electron `WebContentsView`** — timed out after 60 s on run 1/5 waiting for
+the fixture first-frame report (`electron-webcontentsview-1:1`). No Mac
+WebContentsView numbers.
+
+**Tauri / WKWebView — unmeasured.** Auto-review would not bind subsequent
+Node/mjs harness invocations on strago ("executable content could not be bound
+to this review"); retries and the approval-card retry did not raise a card.
+Stopped per Eng Manager. Do not claim a Mac Tauri result.
 
 ## Tradeoffs beyond the numbers (what a Tauri/webview migration would cost)
 
@@ -142,10 +170,18 @@ feasible than for most Electron apps. But the in-app browser overlay, the
 update pipeline, and CDP-based QA are real regressions today, and the measured
 numbers give no perf payback on Linux.
 
-## What needs a Mac (strago repro)
+## Mac status: BrowserWindow measured; Tauri unmeasured; Track B stopped
 
-Everything above is VM-labeled. To make this a fair fight on the platform
-users actually run:
+The strago addendum above covers what actually ran on a Mac: the Electron
+`BrowserWindow` baseline completed (286 ms first frame, 86 ms window-open,
+consistent with the VM's relative picture); the `WebContentsView` spike timed
+out on run 1; the Tauri/WKWebView run could not be executed at all. The
+decision rule (Mac Tauri must beat Mac Electron by >30% on both cold start and
+memory, window-open under ~150 ms) therefore cannot be met — unmeasured ≠ a
+win — and Track B is stopped. See `KEEP_DITCH.md` for the keep/ditch record.
+
+The repro steps below are kept for reference in case the Mac Tauri measurement
+path ever becomes runnable again:
 
 1. **Mac Electron baseline** (harness runs as-is on macOS):
 
@@ -178,10 +214,11 @@ users actually run:
    (`scripts/packaged-app-paths.mjs` resolves it) — the smoke test already
    shows the env needed (`scripts/smoke-packaged-app.mjs`).
 
-Decision rule proposed: revisit the wrapper question only if the strago Tauri
+Decision rule (as agreed): revisit the wrapper question only if a strago Tauri
 run beats Mac Electron on **both** cold start and PSS-equivalent memory by
->30% while window-open stays under ~150 ms. Otherwise the tradeoff table above
-settles it.
+>30% while window-open stays under ~150 ms. That run could not be collected
+(see the strago addendum), so the rule is unmet and the tradeoff table above
+settles it: stay on Electron.
 
 ---
 
