@@ -86,10 +86,10 @@ const promptDecorationPluginKey = new PluginKey<PromptDecorationPluginState>(
  * decorations are mapped through the edit (so they stay anchored to their
  * text) and a full rebuild runs shortly afterwards via
  * PROMPT_DECORATION_LARGE_DOC_REBUILD_DELAY_MS. The only observable
- * difference on a large doc is that a newly matching range highlights a beat
- * after the keystroke instead of within it.
+ * difference on a large doc is that highlight additions/removals can lag the
+ * edit by one rebuild interval.
  */
-export const PROMPT_DECORATION_LARGE_DOC_SIZE = 10_000;
+export const PROMPT_DECORATION_LARGE_DOC_SIZE = 100_000;
 export const PROMPT_DECORATION_LARGE_DOC_REBUILD_DELAY_MS = 200;
 
 const EMPTY_SOURCES: readonly PromptDecorationSource[] = [];
@@ -422,22 +422,22 @@ export const PromptDecorationExtension =
             return {
               update(updatedView, previousState) {
                 latestDoc = updatedView.state.doc;
-                const previousRevision =
-                  promptDecorationPluginKey.getState(previousState)?.revision;
-                const nextRevision = promptDecorationPluginKey.getState(
+                const previousPluginState =
+                  promptDecorationPluginKey.getState(previousState);
+                const nextPluginState = promptDecorationPluginKey.getState(
                   updatedView.state,
-                )?.revision;
+                );
                 if (
                   !updatedView.state.doc.eq(previousState.doc) ||
-                  previousRevision !== nextRevision
+                  previousPluginState?.revision !== nextPluginState?.revision
                 ) {
                   schedule(updatedView.state.doc);
                 }
-                if (
-                  promptDecorationPluginKey.getState(updatedView.state)
-                    ?.rebuildPending
-                ) {
+                if (nextPluginState?.rebuildPending) {
                   scheduleDeferredRebuild(updatedView);
+                } else if (rebuildTimeout !== null) {
+                  clearTimeout(rebuildTimeout);
+                  rebuildTimeout = null;
                 }
               },
               destroy() {

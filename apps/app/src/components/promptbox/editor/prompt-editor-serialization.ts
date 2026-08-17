@@ -290,25 +290,10 @@ function collectMarkdownMarkRanges(text: string): MarkdownParseRanges {
   return { marks, markers };
 }
 
-function markdownMarksAt(
-  position: number,
-  ranges: readonly MarkdownMarkRange[],
-): JSONContent["marks"] {
-  const markNames = ranges
-    .filter((range) => position >= range.start && position < range.end)
-    .map((range) => range.type);
-
-  if (markNames.length === 0) {
-    return undefined;
-  }
-
-  return markNames.map((type) => ({ type }));
-}
-
 /**
  * Mark lookup for monotonically increasing positions. Equivalent to
- * `markdownMarksAt` (same ordering: `marks` is sorted by start) but amortized
- * O(1) per query instead of a scan over every mark range.
+ * a full range scan (same ordering: `marks` is sorted by start) but amortized
+ * O(1) per query.
  */
 function createMarkdownMarkSweep(
   marks: readonly MarkdownMarkRange[],
@@ -331,15 +316,6 @@ function createMarkdownMarkSweep(
     }
     return activeMarks.map((mark) => ({ type: mark.type }));
   };
-}
-
-function areMarkdownMarksEqual(
-  left: JSONContent["marks"],
-  right: JSONContent["marks"],
-): boolean {
-  const leftNames = left?.map((mark) => mark.type).join("|") ?? "";
-  const rightNames = right?.map((mark) => mark.type).join("|") ?? "";
-  return leftNames === rightNames;
 }
 
 /**
@@ -428,7 +404,6 @@ function promptEditorInlineMarkdownContentFromValue(
   for (const marker of ranges.markers) {
     markerByStart.set(marker.start, marker);
   }
-  const mentionStarts = new Set(mentions.map((mention) => mention.start));
   const marksAt = createMarkdownMarkSweep(ranges.marks);
   const boundaryAfter = createMarkdownBoundarySweep({
     mentions,
@@ -469,15 +444,6 @@ function promptEditorInlineMarkdownContentFromValue(
     }
 
     let end = boundaryAfter(cursor);
-    while (
-      end < value.text.length &&
-      !markerByStart.has(end) &&
-      !mentionStarts.has(end) &&
-      value.text[end] !== "\n" &&
-      areMarkdownMarksEqual(marks, markdownMarksAt(end, ranges.marks))
-    ) {
-      end += 1;
-    }
     if (end <= cursor) {
       end = cursor + 1;
     }

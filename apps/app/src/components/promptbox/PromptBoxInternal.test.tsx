@@ -55,6 +55,7 @@ import {
 import {
   INERT_TYPEAHEAD_COMMAND_CONFIG,
   PromptBoxInternal,
+  arePromptEditorValuesEqual,
   suppressPromptEditorAnchorActivation,
   type PromptBoxAction,
   type PromptBoxHandle,
@@ -554,6 +555,39 @@ describe("suppressPromptEditorAnchorActivation", () => {
 });
 
 describe("PromptBoxInternal controlled value sync", () => {
+  it("compares cloned mention values without serializing the prompt text", () => {
+    const mention: PromptTextMention = {
+      start: 4,
+      end: 10,
+      resource: {
+        kind: "path",
+        source: "workspace",
+        entryKind: "file",
+        path: "src/a.ts",
+        label: "a.ts",
+      },
+    };
+    const left = { text: "see @a.ts", mentions: [mention] };
+
+    expect(
+      arePromptEditorValuesEqual(left, {
+        text: left.text,
+        mentions: [{ ...mention, resource: { ...mention.resource } }],
+      }),
+    ).toBe(true);
+    expect(
+      arePromptEditorValuesEqual(left, {
+        text: left.text,
+        mentions: [
+          {
+            ...mention,
+            resource: { ...mention.resource, path: "src/b.ts" },
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
   it("suppresses and restores plugin customizations without remounting the editor", () => {
     setPluginSlotRegistrations(
       "pending-test",

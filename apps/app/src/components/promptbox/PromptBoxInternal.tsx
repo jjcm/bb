@@ -429,7 +429,7 @@ interface DismissedTriggerRange {
   hasLeftRange: boolean;
 }
 
-interface PromptEditorValueKey {
+export interface PromptEditorValueKey {
   text: string;
   mentions: readonly PromptTextMention[];
 }
@@ -503,7 +503,7 @@ function createTransientZenModeAtom() {
  * In the controlled round-trip the text and mention references are identical,
  * so this normally settles on pointer equality alone.
  */
-function arePromptEditorValuesEqual(
+export function arePromptEditorValuesEqual(
   left: PromptEditorValueKey | null,
   right: PromptEditorValueKey,
 ): boolean {

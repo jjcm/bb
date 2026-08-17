@@ -1,5 +1,5 @@
 /**
- * Composer large-paste performance harness. NOT part of the normal suite:
+ * Composer synthetic large-paste microbenchmark. NOT part of the normal suite:
  * every case is gated behind PROMPTBOX_PERF=1 because wall-clock timings are
  * meaningless as pass/fail signals on shared CI machines.
  *
@@ -13,11 +13,11 @@
  *     pnpm exec vitest run \
  *     src/components/promptbox/editor/prompt-paste-performance.test.ts
  *
- * What it measures (per fixture size): the synchronous JS work the composer
- * performs when a large minified single-line blob is pasted, and the work it
- * repeats on EVERY subsequent keystroke/selection change while that text sits
- * in the prompt box. DOM/layout cost (ProseMirror view updates, line wrapping
- * of a 1 MB line) is not measurable here and must be profiled in Electron.
+ * What it measures (per fixture size): isolated synchronous JS primitives the
+ * composer invokes when a synthetic minified single-line blob is pasted or
+ * edited. This is not an end-to-end editor transaction benchmark. DOM/layout
+ * cost (ProseMirror view updates, line wrapping of a 1 MB line) is not
+ * measurable here and must be profiled in Electron.
  *
  * Some rows measure primitives that were REMOVED from the per-keystroke path
  * (value-key JSON.stringify, per-keystroke draft serialization, synchronous
@@ -131,26 +131,13 @@ describe.runIf(PERF_ENABLED)("composer large minified-JS paste", () => {
       lines.push(`paste: inline content (plain)          ${formatMs(plainPasteMs)}ms`);
 
       // Paste/mount-time work with the rich-text Markdown preference ON
-      // (also runs on every external setContent of the draft). Time-boxed:
-      // one run, skipped at larger sizes once it blows past 20s.
-      const richTextBudgetMs = 20_000;
-      const richStart = performance.now();
-      let richTimedOut = false;
-      if (
-        (globalThis as { __promptPerfRichBlown?: boolean })
-          .__promptPerfRichBlown !== true
-      ) {
-        promptEditorContentFromValue(value, { richTextMarkdown: true });
-        const richMs = performance.now() - richStart;
-        lines.push(`paste/mount: content (richTextMarkdown) ${formatMs(richMs)}ms`);
-        if (richMs > richTextBudgetMs) {
-          (globalThis as { __promptPerfRichBlown?: boolean }).__promptPerfRichBlown =
-            true;
-          richTimedOut = true;
-        }
-      } else {
-        lines.push("paste/mount: content (richTextMarkdown) skipped (blew budget at smaller size)");
-      }
+      // (also runs on every external setContent of the draft).
+      const richMs = measureMs(3, () =>
+        promptEditorContentFromValue(value, { richTextMarkdown: true }),
+      );
+      lines.push(
+        `paste/mount: content (richTextMarkdown) ${formatMs(richMs)}ms`,
+      );
 
       // Build the document the editor holds after the paste.
       const doc = Node.fromJSON(schema, {
@@ -188,7 +175,8 @@ describe.runIf(PERF_ENABLED)("composer large minified-JS paste", () => {
       lines.push(`draft JSON serialize (per keystroke pre-fix; now per 250ms flush) ${formatMs(draftSerializeMs)}ms`);
 
       console.log(lines.join("\n"));
-      expect(richTimedOut || true).toBe(true);
+      expect(text.length).toBeGreaterThanOrEqual(size);
+      expect(text).not.toContain("\n");
     });
   }
 });

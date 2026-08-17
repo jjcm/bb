@@ -390,6 +390,41 @@ describe("PromptDecorationExtension", () => {
     // The deferred rebuild picks up the new match.
     vi.advanceTimersByTime(PROMPT_DECORATION_LARGE_DOC_REBUILD_DELAY_MS);
     expect(ultracodeDecorations()).toHaveLength(2);
+
+    // Editing inside an existing match can leave the mapped decoration stale
+    // until the deferred rule pass. That bounded lag is intentional.
+    editor.commands.insertContentAt({ from: 10, to: 11 }, "x");
+    expect(ultracodeDecorations()).toHaveLength(2);
+    vi.advanceTimersByTime(PROMPT_DECORATION_LARGE_DOC_REBUILD_DELAY_MS);
+    expect(ultracodeDecorations()).toHaveLength(1);
+    editor.destroy();
+  });
+
+  it("cancels a pending large-doc rebuild after an explicit refresh", () => {
+    vi.useFakeTimers();
+    const match = vi.fn(() => []);
+    const editor = createEditor(
+      false,
+      paragraphContent("x".repeat(PROMPT_DECORATION_LARGE_DOC_SIZE + 100)),
+      {
+        getDecorationSources: () => [
+          {
+            id: "plugin:test",
+            generation: 1,
+            effects: [{ id: "test", className: "test", match }],
+          },
+        ],
+      },
+    );
+    expect(match).toHaveBeenCalledTimes(1);
+
+    editor.commands.insertContent("y");
+    expect(match).toHaveBeenCalledTimes(1);
+    refreshPromptDecorations(editor);
+    expect(match).toHaveBeenCalledTimes(2);
+
+    vi.advanceTimersByTime(PROMPT_DECORATION_LARGE_DOC_REBUILD_DELAY_MS);
+    expect(match).toHaveBeenCalledTimes(2);
     editor.destroy();
   });
 });
