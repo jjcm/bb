@@ -70,13 +70,23 @@ import {
   type PaneSecondaryPanelRegistration,
   type PaneSecondaryPanelRegistry,
 } from "./PaneContext";
-import { ThreadDetailView } from "./ThreadDetailView";
 import { RootComposeView } from "@/views/RootComposeView";
 
-// Lazy: plugin panels bundle the plugin-frontend bridge and provide the
-// `@pierre/diffs` worker pool for plugin-rendered diffs, so a static import
-// would pull pierre + Shiki into the workspace route chunk that gates every
-// session's first paint. Panels load on demand when a plugin pane is shown.
+// Lazy pane content views. A pane renders exactly one of thread detail, root
+// compose, or a plugin panel, but a static import would put thread detail
+// (timeline + secondary panels — the largest view) and the plugin bridge
+// into the one workspace route chunk that gates every session's first
+// paint. With ThreadDetailView lazy, the default `/` route parses only the
+// compose graph; a thread URL fetches the thread chunk in parallel and
+// parses both. RootComposeView deliberately stays static: splitting it too
+// re-fragments small shared modules into extra boot chunks (measured +9 KB
+// brotli on the boot budget) for no `/` win, since `/` needs it
+// immediately anyway.
+const ThreadDetailView = lazy(() =>
+  import("./ThreadDetailView").then((module) => ({
+    default: module.ThreadDetailView,
+  })),
+);
 const PluginPanelView = lazy(() =>
   import("@/views/PluginPanelView").then((module) => ({
     default: module.PluginPanelView,
@@ -991,21 +1001,31 @@ function WorkspacePaneContent({
 
   return (
     <PaneContext.Provider value={value}>
-      <ThreadDetailView
-        surface="pane"
-        projectId={content.projectId}
-        threadId={content.threadId}
-      />
+      <Suspense fallback={null}>
+        <ThreadDetailView
+          surface="pane"
+          projectId={content.projectId}
+          threadId={content.threadId}
+        />
+      </Suspense>
     </PaneContext.Provider>
   );
 }
 
 function StandalonePaneContent({ content }: { content: PaneContent }) {
   if (content.kind === "thread") {
-    return <ThreadDetailView surface="page" />;
+    return (
+      <Suspense fallback={null}>
+        <ThreadDetailView surface="page" />
+      </Suspense>
+    );
   }
   if (content.kind === "new-thread") {
-    return <RootComposeView />;
+    return (
+      <Suspense fallback={null}>
+        <RootComposeView />
+      </Suspense>
+    );
   }
   return (
     <Suspense fallback={null}>
@@ -1182,7 +1202,9 @@ function NonThreadPaneContent({
         )}
       >
         {content.kind === "new-thread" ? (
-          <RootComposeView />
+          <Suspense fallback={null}>
+            <RootComposeView />
+          </Suspense>
         ) : (
           <Suspense fallback={null}>
             <PluginPanelView

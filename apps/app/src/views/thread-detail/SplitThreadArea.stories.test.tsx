@@ -33,6 +33,12 @@ describe("SplitThreadArea stories", () => {
         throw new Error("Expected two split pane elements");
       }
 
+      // The pane thread views are lazy; wait for their content to resolve
+      // before asserting on pane internals.
+      await waitFor(() => {
+        expect(idlePane.querySelector("header")).toBeTruthy();
+        expect(activePane.querySelector("header")).toBeTruthy();
+      });
       expect(idlePane.querySelector("header")?.classList).not.toContain(
         "opacity-50",
       );

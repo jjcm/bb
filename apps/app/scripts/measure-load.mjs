@@ -36,6 +36,14 @@ const BASE = argValue("base", "http://127.0.0.1:38886");
 const RUNS = Number(argValue("runs", "7"));
 const LABEL = argValue("label", "run");
 const CPU_THROTTLE = Number(argValue("cpu", "4"));
+/**
+ * --profile: run the CDP sampling profiler from navigation to route-ready
+ * and print main-thread self-time aggregated per script URL. Use this to
+ * attribute the pre-route-ready crunch to specific chunks instead of
+ * guessing from download order. Adds overhead — do not compare absolute
+ * route-ready numbers from a profiled run against unprofiled runs.
+ */
+const PROFILE = args.includes("--profile");
 const ROUTES = argValue("routes", "/,/settings")
   .split(",")
   .map((route) => route.trim())
@@ -186,6 +194,11 @@ async function measureOnce(route) {
     await session.send("Page.addScriptToEvaluateOnNewDocument", {
       source: OBSERVER_SNIPPET,
     });
+    if (PROFILE) {
+      await session.send("Profiler.enable");
+      await session.send("Profiler.setSamplingInterval", { interval: 500 });
+      await session.send("Profiler.start");
+    }
 
     const marker = routeReadyMarker(route);
     const startWall = Date.now();
@@ -204,6 +217,33 @@ async function measureOnce(route) {
         break;
       }
       await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    let profileByUrl = null;
+    if (PROFILE) {
+      const { profile } = await session.send("Profiler.stop");
+      const selfMicrosByNode = new Map();
+      const hitsByNode = new Map();
+      for (let i = 0; i < (profile.samples ?? []).length; i += 1) {
+        const nodeId = profile.samples[i];
+        hitsByNode.set(nodeId, (hitsByNode.get(nodeId) ?? 0) + 1);
+        selfMicrosByNode.set(
+          nodeId,
+          (selfMicrosByNode.get(nodeId) ?? 0) + (profile.timeDeltas?.[i] ?? 0),
+        );
+      }
+      profileByUrl = new Map();
+      for (const node of profile.nodes) {
+        const micros = selfMicrosByNode.get(node.id);
+        if (!micros) continue;
+        const url = node.callFrame.url || "(no url)";
+        const chunk = url.split("/").pop() || url;
+        // Two aggregations: per chunk, and per (chunk, function) so module
+        // evaluation is distinguishable from render/work functions.
+        profileByUrl.set(chunk, (profileByUrl.get(chunk) ?? 0) + micros);
+        const fn = `${chunk} :: ${node.callFrame.functionName || "(anonymous)"}`;
+        profileByUrl.set(fn, (profileByUrl.get(fn) ?? 0) + micros);
+      }
     }
 
     // Give LCP a settling beat, then read observers + resource waterfall.
@@ -239,6 +279,7 @@ async function measureOnce(route) {
       wallMs: Date.now() - startWall,
       scripts: data.scripts,
       requests: data.requests,
+      profileByUrl,
       domContentLoaded: data.nav?.domContentLoadedEventEnd ?? null,
     };
   } finally {
@@ -281,5 +322,18 @@ for (const route of ROUTES) {
     console.log(
       `    ${String(request.start).padStart(6)}→${String(request.end).padStart(6)} ms  ${request.name}`,
     );
+  }
+  if (lastRun.profileByUrl) {
+    console.log(
+      "  main-thread self time by script until route-ready (last run):",
+    );
+    const entries = [...lastRun.profileByUrl.entries()].sort(
+      (left, right) => right[1] - left[1],
+    );
+    for (const [url, micros] of entries) {
+      const ms = micros / 1000;
+      if (ms < 5) continue;
+      console.log(`    ${ms.toFixed(0).padStart(6)} ms  ${url}`);
+    }
   }
 }

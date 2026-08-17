@@ -394,6 +394,106 @@ that further means either splitting TipTap out of the composer's first paint
 (placeholder editor, high product risk) or trimming the route chunk itself —
 next iteration's candidates, untouched here.
 
+---
+
+# Load-time iteration 3: thread detail out of the default route's chunk
+
+**Verdict: KEEP.** Measured −7.1% on `/` route-ready vs this iteration's own
+fresh baseline, with FCP and LCP each −48 ms, and the thread route measured
+to confirm no regression (it improved slightly). Environment for every number
+here: Linux headless Chromium over localhost (4× CPU throttle, cold cache,
+medians of 7, `apps/app/scripts/measure-load.mjs`, seeded DB). Not Electron.
+
+## Fresh baseline at PR HEAD (before this iteration)
+
+`/` route-ready 1,853 ms, FCP 896 ms, LCP 1,180 ms — consistent with
+iteration 2's after-numbers (1,836 ms), so the plugin deferral held.
+
+## What the profiler showed (new `--profile` mode)
+
+The harness gained a CDP sampling-profiler mode that attributes main-thread
+self-time per script until route-ready. The documented hypothesis
+("TipTap/ProseMirror evaluation + compose-surface render") was again only
+part of the story:
+
+- The TipTap chunk accounted for ~188 ms of the ~1.85 s window.
+- More time sat in boot-chunk execution and React render work (react-dom
+  ~334 ms; a domain/zod/icons boot chunk ~476 ms including render frames
+  attributed to it; ~276 ms parse/compile).
+- DOM volume was ruled out: `/` renders only ~1,100 elements.
+- The clearest byte-level waste: the workspace route chunk statically
+  included the entire ThreadDetailView graph (timeline, secondary panels,
+  embedded chat) that `/` never renders — and vice versa nothing on `/`
+  needed it.
+
+## The change
+
+- `ThreadDetailView` is now a lazy pane view inside `SplitThreadArea`
+  (Suspense fallback null), like `PluginPanelView` already was. The default
+  `/` route parses only the compose graph; thread URLs fetch the thread
+  chunk in parallel with the route chunk.
+- `LegacyProjectComposeRedirect` moved to its own module so the route table
+  no longer statically reaches `RootComposeView`.
+- `RootComposeView` deliberately **stays static** in the route chunk: a
+  three-way split was tried and measured — it re-fragmented shared modules
+  into extra boot chunks (+9.4 KB brotli on boot) with no additional `/`
+  win, so it was reverted to the two-way shape (+8 → +6.9 KB contained).
+- Consumer APIs unchanged; pierre/Shiki/KaTeX split, plugin idle deferral,
+  and all composer paste keepers untouched.
+
+Structural result: the `/` route's static closure dropped from 4,090 KB to
+3,191 KB raw (−899 KB): a 500 KB ThreadDetailView chunk plus ~400 KB of
+thread-only shared chunks now load only on thread routes. The forbidden-boot
+and forbidden-route package assertions still hold.
+
+## Before/after (vs this iteration's fresh baseline, same methodology)
+
+| Metric | Baseline (PR HEAD) | After | Delta |
+| --- | ---: | ---: | ---: |
+| `/` route-ready (composer present) | 1,853 ms | **1,722 ms** | **−131 ms (−7.1%)** |
+| `/` FCP | 896 ms | 848 ms | −48 ms |
+| `/` LCP | 1,180 ms | 1,132 ms | −48 ms |
+| Thread route route-ready¹ | 2,226 ms | 2,140 ms | −86 ms (no regression) |
+| Thread route LCP¹ | 2,252 ms | 2,164 ms | −88 ms |
+| `/settings` route-ready | ~1,065 ms (iter-2 after) | 1,048 ms | noise |
+| `/` route static closure | 4,090 KB raw | 3,191 KB raw | −899 KB |
+| Boot payload | 1,666.1 KB raw / 441.2 KB br (22 chunks) | 1,669.1 KB raw / 449.2 KB br (26 chunks) | +3.0 KB raw / +8.0 KB br |
+
+¹ Measured on the canonical `/projects/:projectId/threads/:threadId` URL by
+stash-rebuilding the pre-change revision, since the projectless `/threads/:id`
+URL renders ThreadDetailView's "Not found" state on this seeded fixture (a
+pre-existing data condition — it also explains why the thread ready-marker
+read NaN in every earlier iteration; earlier thread rows report FCP/LCP only).
+
+Cumulative `/` route-ready across the three load iterations:
+**2,494 → 1,722 ms (−31%)** on this rig.
+
+## Tradeoffs
+
+- **Boot brotli ratchet raised again, 442.4 → 450.0 KB** (and raw 1,667 →
+  1,672 KB) in `bundle-budget.json`: splitting the thread view re-partitions
+  modules shared between boot and the thread chunk (`useAppTheme`,
+  drag-click suppression, and several slivers become separate chunks), and
+  26 brotli streams compress slightly worse than 22. Cumulative boot cost of
+  all three load iterations: +12.4 KB brotli (+2.8%) — against −2.25 MB raw
+  removed from the default route's parse/execute path plus deferred plugin
+  evaluation. If a later iteration wins boot headroom back, lower the
+  ratchet per the budget file's own policy.
+- First navigation from `/` to a thread in a session shows the pane Suspense
+  fallback (blank pane) for one chunk round trip (~20 ms localhost; one
+  extra HTTP/2 request on real networks). Subsequent thread opens are
+  cached. Measured cold thread-route load did not regress.
+- Three SplitThreadArea tests updated to await the now-lazy pane content.
+
+## Remaining `/` route-ready cost (next candidates, measured)
+
+~900 ms between the route wave and composer commit at 4× throttle:
+parse/compile (~276 ms), the domain/zod/icon boot chunk (~200–475 ms
+including attributed render work), react-dom render (~334 ms), TipTap eval
+(~188 ms). The largest untried lever is module-eval cost in the boot chunks
+(zod schema construction in `@bb/domain`, the eager ~280-icon map) — an
+invasive package-level change, deliberately not attempted in this iteration.
+
 ## Filtered revision verification
 
 - Targeted composer/draft regression tests: 162 passed.

@@ -91,7 +91,7 @@ afterEach(() => {
 });
 
 describe("SplitThreadArea single-pane parity", () => {
-  it("renders the pre-split page and preserves a stored layout when the experiment is off", () => {
+  it("renders the pre-split page and preserves a stored layout when the experiment is off", async () => {
     experimentState.enabled = false;
     const layout: SplitLayout = {
       root: {
@@ -102,28 +102,30 @@ describe("SplitThreadArea single-pane parity", () => {
       },
       focusedPaneId: "pane-1",
     };
-    const { container, getAllByTestId, store, storedLayout } =
+    const { container, findAllByTestId, store, storedLayout } =
       renderArea(layout);
 
     expect(container.querySelectorAll("[data-split-pane-id]")).toHaveLength(0);
-    expect(getAllByTestId("thread-view")).toHaveLength(1);
-    expect(getAllByTestId("thread-view")[0]?.dataset.thread).toBe("page");
+    // ThreadDetailView is a lazy pane view; wait for its chunk to resolve.
+    const threadViews = await findAllByTestId("thread-view");
+    expect(threadViews).toHaveLength(1);
+    expect(threadViews[0]?.dataset.thread).toBe("page");
     expect(store.get(splitLayoutAtom)).toStrictEqual(storedLayout);
     expect(
       window.localStorage.getItem(SPLIT_LAYOUT_STORAGE_KEY),
     ).not.toBeNull();
   });
 
-  it("renders the single pane with no wrapper element around the thread view", () => {
-    const { container, getAllByTestId } = renderArea({
+  it("renders the single pane with no wrapper element around the thread view", async () => {
+    const { container, findAllByTestId } = renderArea({
       root: pane("pane-1", "t1"),
       focusedPaneId: "pane-1",
     });
     // The wrapper-less single-pane surface adds no pane-id hit-test element and
     // no layout wrapper: the thread view is the direct rendered child, matching
-    // the pre-split page surface.
+    // the pre-split page surface. The view itself is lazy, so wait for it.
     expect(container.querySelectorAll("[data-split-pane-id]")).toHaveLength(0);
-    expect(getAllByTestId("thread-view")).toHaveLength(1);
+    expect(await findAllByTestId("thread-view")).toHaveLength(1);
     expect(container.firstElementChild?.getAttribute("data-testid")).toBe(
       "thread-view",
     );
