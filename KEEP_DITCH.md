@@ -174,3 +174,13 @@ parse work disappears, inspect Chromium layout/paint for the wrapped
 single-line editor. That result would identify a separate Electron bottleneck,
 not invalidate the VM microbenchmark.
 
+## Filtered revision verification
+
+- Targeted composer/draft regression tests: 162 passed.
+- Full `@bb/app` suite through Turbo: 349 files, 2,778 passed, 3 skipped.
+- `pnpm exec turbo run typecheck --filter=@bb/app`: passed.
+- `pnpm exec turbo run lint --filter=@bb/app`: passed with zero errors (145
+  existing warnings reported).
+- Gated synthetic microbenchmark: passed at 128 KB, 512 KB, and 1 MB.
+- GitHub reports no configured checks for this fork's PR.
+
