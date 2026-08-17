@@ -428,9 +428,19 @@ async function runRealStartupIteration({ iteration }) {
         await new Promise((r) =>
           requestAnimationFrame(() => requestAnimationFrame(r)),
         );
-        const fcp = performance
-          .getEntriesByType("paint")
-          .find((e) => e.name === "first-contentful-paint");
+        const firstFrameEpochMs = performance.timeOrigin + performance.now();
+        // The FCP entry lands asynchronously after the first paint, which for
+        // the SPA can be well after the load event; poll for it briefly.
+        const findFcp = () =>
+          performance
+            .getEntriesByType("paint")
+            .find((e) => e.name === "first-contentful-paint");
+        let fcp = findFcp();
+        const deadline = performance.now() + 5000;
+        while (fcp === undefined && performance.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 100));
+          fcp = findFcp();
+        }
         const nav = performance.getEntriesByType("navigation")[0];
         return {
           fcpEpochMs:
@@ -439,7 +449,7 @@ async function runRealStartupIteration({ iteration }) {
             nav === undefined
               ? null
               : performance.timeOrigin + nav.loadEventEnd,
-          firstFrameEpochMs: performance.timeOrigin + performance.now(),
+          firstFrameEpochMs,
         };
       })()`,
       { awaitPromise: true },
@@ -531,7 +541,7 @@ function renderMarkdown(results) {
     `- ${results.environment.note}`,
     "",
   ];
-  if (results.fixture !== undefined) {
+  if (results.fixture?.aggregate != null) {
     const a = results.fixture.aggregate;
     lines.push(
       "## Fixture scenarios (real shell, stub bb server, instrumented page)",
@@ -559,7 +569,7 @@ function renderMarkdown(results) {
       "",
     );
   }
-  if (results.startupReal !== undefined) {
+  if (results.startupReal?.aggregate != null) {
     const a = results.startupReal.aggregate;
     lines.push(
       "## Full product cold start (shell spawns bb-app, loads built SPA)",
@@ -593,32 +603,53 @@ async function main() {
 
   if (args.scenarios.includes("fixture")) {
     const iterations = [];
-    for (let i = 1; i <= args.iterations; i += 1) {
-      console.error(`fixture run ${i}/${args.iterations}…`);
-      const iteration = await runFixtureIteration({ iteration: i });
-      iterations.push(iteration);
-      console.error(
-        `  first frame ${iteration.metrics.startup.firstFrameMs}ms, ` +
-          `window open ${iteration.metrics.windowOpen.firstFrameMs}ms, ` +
-          `PSS ${iteration.metrics.memoryPssMb.toFixed(1)}MB`,
-      );
+    try {
+      for (let i = 1; i <= args.iterations; i += 1) {
+        console.error(`fixture run ${i}/${args.iterations}…`);
+        const iteration = await runFixtureIteration({ iteration: i });
+        iterations.push(iteration);
+        console.error(
+          `  first frame ${iteration.metrics.startup.firstFrameMs}ms, ` +
+            `window open ${iteration.metrics.windowOpen.firstFrameMs}ms, ` +
+            `PSS ${iteration.metrics.memoryPssMb.toFixed(1)}MB`,
+        );
+      }
+      results.fixture = { aggregate: aggregateFixture(iterations), iterations };
+    } catch (error) {
+      // Keep whatever completed; a failed scenario must not lose the rest.
+      results.fixture = {
+        aggregate: iterations.length > 0 ? aggregateFixture(iterations) : null,
+        error: error instanceof Error ? error.message : String(error),
+        iterations,
+      };
+      console.error(`fixture scenario failed: ${results.fixture.error}`);
+      process.exitCode = 1;
     }
-    results.fixture = { aggregate: aggregateFixture(iterations), iterations };
   }
 
   if (args.scenarios.includes("startup-real")) {
     const iterations = [];
     const realIterationCount = Math.min(args.iterations, 3);
-    for (let i = 1; i <= realIterationCount; i += 1) {
-      console.error(`startup-real run ${i}/${realIterationCount}…`);
-      const iteration = await runRealStartupIteration({ iteration: i });
-      iterations.push(iteration);
-      console.error(
-        `  SPA FCP ${formatMs(iteration.metrics.fcpMs)}ms, ` +
-          `PSS ${iteration.metrics.memoryPssMb.toFixed(1)}MB`,
-      );
+    try {
+      for (let i = 1; i <= realIterationCount; i += 1) {
+        console.error(`startup-real run ${i}/${realIterationCount}…`);
+        const iteration = await runRealStartupIteration({ iteration: i });
+        iterations.push(iteration);
+        console.error(
+          `  SPA FCP ${formatMs(iteration.metrics.fcpMs)}ms, ` +
+            `PSS ${iteration.metrics.memoryPssMb.toFixed(1)}MB`,
+        );
+      }
+      results.startupReal = { aggregate: aggregateReal(iterations), iterations };
+    } catch (error) {
+      results.startupReal = {
+        aggregate: iterations.length > 0 ? aggregateReal(iterations) : null,
+        error: error instanceof Error ? error.message : String(error),
+        iterations,
+      };
+      console.error(`startup-real scenario failed: ${results.startupReal.error}`);
+      process.exitCode = 1;
     }
-    results.startupReal = { aggregate: aggregateReal(iterations), iterations };
   }
 
   const outDir = join(

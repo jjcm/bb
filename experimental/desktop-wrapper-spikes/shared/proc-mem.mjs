@@ -69,6 +69,10 @@ async function readComm(pid) {
  * the per-process breakdown in the result makes gaps visible.
  */
 export async function sampleProcessTreeMemory(rootPid) {
+  if (process.platform !== "linux") {
+    // No /proc off-Linux; report an empty sample instead of failing the run.
+    return { processCount: 0, processes: [], totalPssKb: 0, totalRssKb: 0 };
+  }
   const pids = await listDescendants(rootPid);
   const processes = [];
   let totalPssKb = 0;
