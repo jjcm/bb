@@ -668,13 +668,20 @@ Chromium-on-Linux relative measurements, not Electron claims.
 - KaTeX and pierre workers can respawn after unload/failure as documented.
 - Electron FCP/LCP/TTI and macOS cold start remain hypotheses pending strago.
 
-## Filtered revision verification
+## Final filtered revision verification
 
-- Targeted composer/draft regression tests: 162 passed.
 - Full `@bb/app` suite through Turbo: 349 files, 2,778 passed, 3 skipped.
+  The lazy-pane story test was also stabilized with an explicit 5 s wait and
+  passed both targeted and full-suite runs.
 - `pnpm exec turbo run typecheck --filter=@bb/app`: passed.
 - `pnpm exec turbo run lint --filter=@bb/app`: passed with zero errors (145
   existing warnings reported).
-- Gated synthetic microbenchmark: passed at 128 KB, 512 KB, and 1 MB.
+- Bundle budget: 1,669.1 KB raw / 449.7 KB wire-size-adjusted brotli vs
+  1,672.0 / 450.0 KB limits; forbidden lazy-only packages absent.
+- Paste microbenchmark: passed at 128 KB, 512 KB, and 1 MB; final 1 MB
+  rich-Markdown parse 10.05 ms.
+- Load harness: final medians `/` 844/1,148/1,721 ms
+  (FCP/LCP/promptbox-wrapper-ready), canonical thread 868/2,176/2,159 ms,
+  settings 792/1,040/1,035 ms.
 - GitHub reports no configured checks for this fork's PR.
 
