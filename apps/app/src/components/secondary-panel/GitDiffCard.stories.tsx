@@ -16,10 +16,10 @@ import {
   type GitDiffSelectionOption,
 } from "./GitDiffToolbar";
 import {
-  parseGitDiffFiles,
   summarizeGitDiff,
   type ParsedGitDiffFile,
 } from "../git-diff/git-diff-parsing";
+import { parseGitDiffFiles } from "../git-diff/git-diff-patch-parsing";
 import { usePreferredTheme } from "@/hooks/useTheme";
 import { StoryCard, StoryRow } from "../../../.ladle/story-card";
 import { appToast } from "@/components/ui/app-toast";

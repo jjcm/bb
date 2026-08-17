@@ -26,13 +26,13 @@ import {
 import { Skeleton } from "@bb/shared-ui/skeleton";
 import {
   formatGitDiffFileLabel,
-  enrichGitDiffFileForContext,
   isImageGitDiffFile,
   isSvgGitDiffFile,
   normalizeGitDiffPath,
   type GitDiffFileChangeKind,
   type ParsedGitDiffFile,
 } from "./git-diff-parsing";
+import { enrichGitDiffFileForContext } from "./git-diff-patch-parsing";
 
 /**
  * One side of a diff file resolved for the card. `text` carries UTF-8 contents

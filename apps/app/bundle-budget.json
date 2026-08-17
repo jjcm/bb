@@ -23,10 +23,18 @@
     "large and all needed only after a user action (open a diff, focus the",
     "composer, render math). Each one reached the boot path through a barrel",
     "re-export rather than a direct import, which type checking cannot catch,",
-    "so the check names them explicitly."
+    "so the check names them explicitly.",
+    "",
+    "PR #1 ratchet note: the pierre/Shiki/KaTeX and ThreadDetailView lazy",
+    "boundaries increased the boot graph from 14 to 26 independently compressed",
+    "chunks. The current limits admit the measured +12.4 KB brotli (+2.8%)",
+    "stream-fragmentation cost in exchange for removing about 2.25 MB raw from",
+    "the default route's parse/execute closure. Raw product code grew only",
+    "about 5 KB. Lower these limits when later work consolidates the shared",
+    "boot chunks; do not raise them again without a new measured reason."
   ],
-  "maxBootBytes": 1707047,
-  "maxBootBrotliBytes": 448512,
+  "maxBootBytes": 1712128,
+  "maxBootBrotliBytes": 460800,
   "forbiddenBootPackages": [
     "@pierre/diffs",
     "@pierre/theming",

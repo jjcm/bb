@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ComponentPropsWithoutRef,
   type Dispatch,
   type MouseEvent as ReactMouseEvent,
@@ -32,13 +33,11 @@ import type {
   Options as ReactMarkdownOptions,
   UrlTransform,
 } from "react-markdown";
-import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import "katex/dist/katex.min.css";
 import { ImageLightbox } from "./image-lightbox.js";
 import { CopyButton } from "./copy-button.js";
 import { Icon } from "@bb/shared-ui/icon";
@@ -311,15 +310,65 @@ const MARKDOWN_SOURCE_COLOR_SCHEME_MEDIA_PATTERN =
 //
 // Security-critical order: raw HTML must become nodes (rehypeRaw) before
 // sanitization can strip unsafe elements, attributes, and URLs.
+//
+// KaTeX itself (~250 KB raw) loads lazily and only when the content can
+// actually contain math (`$$`, the only delimiter with single-dollar math
+// off). Until the module arrives, `remark-math`'s `language-math` wrappers
+// render as ordinary code, so the TeX source stays readable — no blank state.
+type RehypeKatexPlugin =
+  (typeof import("rehype-katex"))["default"];
+
+let loadedRehypeKatex: RehypeKatexPlugin | null = null;
+let rehypeKatexPromise: Promise<void> | null = null;
+const rehypeKatexListeners = new Set<() => void>();
+
+function loadRehypeKatex(): void {
+  rehypeKatexPromise ??= Promise.all([
+    import("rehype-katex"),
+    // Vite splits the stylesheet (fonts included) into its own lazy asset.
+    import("katex/dist/katex.min.css"),
+  ])
+    .then(([module]) => {
+      loadedRehypeKatex = module.default;
+      for (const listener of rehypeKatexListeners) listener();
+    })
+    .catch((error: unknown) => {
+      // A stale deployment or transient network failure must not become an
+      // unhandled rejection. Keep the readable TeX fallback and drop the
+      // cached rejection so a later math mount can retry the chunk.
+      rehypeKatexPromise = null;
+      console.warn(
+        `KaTeX renderer load failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
+}
+
+function subscribeRehypeKatex(listener: () => void): () => void {
+  rehypeKatexListeners.add(listener);
+  return () => rehypeKatexListeners.delete(listener);
+}
+
+function useRehypeKatexPlugin(content: string): RehypeKatexPlugin | null {
+  const contentCanContainMath = content.includes("$$");
+  const plugin = useSyncExternalStore(
+    subscribeRehypeKatex,
+    () => loadedRehypeKatex,
+    () => null,
+  );
+  useLayoutEffect(() => {
+    if (contentCanContainMath) loadRehypeKatex();
+  }, [contentCanContainMath]);
+  return contentCanContainMath ? plugin : null;
+}
+
 const MARKDOWN_HTML_REHYPE_PLUGINS: MarkdownRehypePlugins = [
   rehypeRaw,
   rehypeSanitize,
-  rehypeKatex,
 ];
 
 // No raw HTML means nothing untrusted to sanitize, so KaTeX renders straight
 // from the `remark-math` wrappers.
-const MARKDOWN_MATH_REHYPE_PLUGINS: MarkdownRehypePlugins = [rehypeKatex];
+const MARKDOWN_MATH_REHYPE_PLUGINS: MarkdownRehypePlugins = [];
 
 function areMarkdownAbsoluteLocalFileLinkRoutingsEqual({
   next,
@@ -1611,12 +1660,21 @@ function MarkdownPreviewComponent({
         : urlTransform,
     [localFileRouting, localImageRouting, urlTransform],
   );
+  const rehypeKatexPlugin = useRehypeKatexPlugin(content);
+  const rehypePlugins = useMemo((): MarkdownRehypePlugins => {
+    const basePlugins = allowHtml
+      ? MARKDOWN_HTML_REHYPE_PLUGINS
+      : MARKDOWN_MATH_REHYPE_PLUGINS;
+    // rehype-katex stays LAST so sanitized output is never re-sanitized (see
+    // the plugin-order comment above).
+    return rehypeKatexPlugin === null
+      ? basePlugins
+      : [...basePlugins, rehypeKatexPlugin];
+  }, [allowHtml, rehypeKatexPlugin]);
 
   const renderedMarkdown = (
     <ReactMarkdown
-      rehypePlugins={
-        allowHtml ? MARKDOWN_HTML_REHYPE_PLUGINS : MARKDOWN_MATH_REHYPE_PLUGINS
-      }
+      rehypePlugins={rehypePlugins}
       remarkPlugins={remarkPlugins}
       components={markdownComponents}
       urlTransform={resolvedUrlTransform}

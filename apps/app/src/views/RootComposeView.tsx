@@ -132,10 +132,7 @@ import {
   useOpenLinksInAppBrowserPreference,
 } from "@/lib/in-app-browser-link-preference";
 import type { MarkdownPreviewLinkHandler } from "@/components/ui/markdown-link";
-import {
-  useRootComposeProjectId,
-  useSetRootComposeProjectId,
-} from "@/lib/root-compose-selection";
+import { useRootComposeProjectId } from "@/lib/root-compose-selection";
 import {
   ROOT_COMPOSE_PINNED_PANEL_TOGGLE_POSITION_CLASS,
   RootComposeSecondaryContent,
@@ -213,10 +210,6 @@ type SecondaryPanelChangeHandler = (panel: ThreadSecondaryPanelTab) => void;
 type NullableSecondaryPanelChangeHandler = (
   panel: ThreadSecondaryPanelTab | null,
 ) => void;
-
-interface LegacyProjectComposeRedirectProps {
-  projectId: string;
-}
 
 export function readSectionIdFromLocationState(state: unknown): string | null {
   if (typeof state !== "object" || state === null) {
@@ -552,30 +545,6 @@ export function buildRootComposeTerminalSessions({
     );
   }
   return undefined;
-}
-
-export function LegacyProjectComposeRedirect({
-  projectId,
-}: LegacyProjectComposeRedirectProps) {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const setRootComposeProjectId = useSetRootComposeProjectId();
-
-  useEffect(() => {
-    setRootComposeProjectId(projectId);
-    navigate(getRootComposeRoutePath(), {
-      replace: true,
-      state: location.state,
-    });
-  }, [location.state, navigate, projectId, setRootComposeProjectId]);
-
-  return (
-    <PageShell contentClassName="min-h-full items-center justify-center">
-      <p className="py-12 text-center text-sm text-muted-foreground">
-        Loading…
-      </p>
-    </PageShell>
-  );
 }
 
 export function RootComposeView() {
