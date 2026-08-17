@@ -220,6 +220,13 @@ async function measureOnce(route) {
             end: Math.round(entry.responseEnd),
             transfer: entry.transferSize,
           })),
+        requests: performance.getEntriesByType("resource")
+          .filter((entry) => entry.initiatorType === "fetch" || entry.initiatorType === "xmlhttprequest")
+          .map((entry) => ({
+            name: entry.name.replace(location.origin, ""),
+            start: Math.round(entry.startTime),
+            end: Math.round(entry.responseEnd),
+          })),
       })`,
       returnByValue: true,
     });
@@ -231,6 +238,7 @@ async function measureOnce(route) {
       routeReady: routeReadyMs,
       wallMs: Date.now() - startWall,
       scripts: data.scripts,
+      requests: data.requests,
       domContentLoaded: data.nav?.domContentLoadedEventEnd ?? null,
     };
   } finally {
@@ -264,6 +272,14 @@ for (const route of ROUTES) {
   for (const script of scripts) {
     console.log(
       `    ${String(script.start).padStart(6)}→${String(script.end).padStart(6)} ms  ${Math.round((script.transfer ?? 0) / 1024).toString().padStart(5)} KB  ${script.name}`,
+    );
+  }
+  console.log("  API request waterfall (last run):");
+  for (const request of [...(lastRun.requests ?? [])].sort(
+    (left, right) => left.start - right.start,
+  )) {
+    console.log(
+      `    ${String(request.start).padStart(6)}→${String(request.end).padStart(6)} ms  ${request.name}`,
     );
   }
 }

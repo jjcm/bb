@@ -306,6 +306,94 @@ the strago run.
 7. Compare against baseline medians; anything within run-to-run spread is
    noise, not a win or regression.
 
+---
+
+# Load-time iteration 2: defer plugin-frontend boot off the route's first paint
+
+**Verdict: KEEP.** Measured −20.8% on `/` route-ready against this iteration's
+own fresh baseline. Environment for every number in this section: Linux
+headless Chromium over localhost (4× CPU throttle, cold cache, medians of 7,
+`apps/app/scripts/measure-load.mjs`, seeded 400 threads / 120k events). Not
+Electron.
+
+## Fresh baseline at PR HEAD (before this iteration)
+
+`/` route-ready 2,319 ms, FCP 856 ms, LCP 1,160 ms; `/settings` route-ready
+1,118 ms; `/threads/:id` FCP 860 / LCP 1,168 ms (its ready marker still never
+fires against the seeded offline-host fixture). Consistent with the previous
+iteration's "after" numbers — the pierre/Shiki/KaTeX split held.
+
+## What the waterfall showed (measured, not the documented hypothesis)
+
+The harness now also records API request timing. The previous report guessed
+"TipTap + plugin frontends"; the data split that in two:
+
+- The sidebar-bootstrap query the composer waits on completes at ~794 ms
+  (17 ms server time) — **API latency is not the bottleneck** on this setup.
+- After the route chunks finish downloading (~790 ms), the main thread runs
+  one long crunch until the composer commits at ~2,300 ms. The tail of that
+  crunch is the plugin-frontend runtime chunk (~157 KB brotli at ~1,200 ms)
+  plus six plugin `app.js` bundles (~427 KB brotli at ~1,680 ms) evaluating
+  **before** the composer's first paint. `usePluginFrontendBoot` claimed
+  "never delays first paint," which was true for the shell FCP but false for
+  route content: plugin module evaluation preempted the composer commit.
+
+## The change
+
+- `usePluginFrontendBoot` now defers boot: config resolves → 500 ms timer
+  (skips the false-idle window while route chunks are still downloading, when
+  an immediate idle callback would fire and put plugin evaluation back in
+  front of the composer) → `requestIdleCallback` with a 3 s timeout
+  (`setTimeout` fallback where rIC is unavailable, e.g. jsdom/Safari).
+- `PluginPanelView` calls `bootPluginFrontends()` directly on mount, so a
+  deep link into a plugin panel skips the idle wait (boot is idempotent per
+  page load). Verified: the automations panel deep link renders real panel
+  content in the headless browser.
+- No consumer API changed; the pierre/Shiki/KaTeX split and all composer
+  paste keepers are untouched.
+
+## Before/after (vs this iteration's fresh baseline, same methodology)
+
+| Metric | Baseline (PR HEAD) | After | Delta |
+| --- | ---: | ---: | ---: |
+| `/` route-ready (composer present) | 2,319 ms | **1,836 ms** | **−483 ms (−20.8%)** |
+| `/` FCP / LCP | 856 / 1,160 ms | 868 / 1,156 ms | noise |
+| `/settings` route-ready | 1,118 ms | 1,065 ms | −53 ms (−4.7%) |
+| `/settings` LCP | 1,128 ms | 1,072 ms | −56 ms |
+| `/threads/:id` FCP / LCP | 860 / 1,168 ms | 876 / 1,164 ms | noise |
+| Plugin `app.js` evaluation | ~1,680 ms, before composer | ~2,029 ms, after composer | reordered |
+
+FCP/LCP measure the eager shell, which paints before the crunch either way;
+this change moves route *content* readiness, which is where the previous
+iteration's remaining gap lived. Boot payload: 1,666.1 KB raw / 441.2 KB
+brotli — inside the existing budget (1,667.0 / 442.4), **no ratchet change
+this iteration**.
+
+## Tradeoffs
+
+- Plugin surfaces (composer actions, sidebar panels, plugin slots) appear
+  roughly 0.5–1.5 s later than before on an idle machine: boot now starts at
+  first idle after route content paints (bounded by the 500 ms timer + 3 s
+  idle timeout) instead of immediately after config resolves. They already
+  popped in asynchronously; the order app-content-first, plugins-second is
+  the point of the change.
+- Plugin panel deep links are exempt via the direct boot call and roughly
+  match previous latency.
+- The measured win depends on plugins being installed (this fixture ships 6
+  plugin frontends). A zero-plugin install skips most of the deferred work
+  and will see a smaller delta — though the plugin runtime chunk itself
+  (~157 KB brotli) is also deferred, which benefits every install.
+
+## Remaining `/` route-ready cost after this iteration
+
+~1,050 ms of main-thread work between the route-chunk wave (~790 ms) and the
+composer commit (~1,836 ms) at 4× throttle: workspace + route chunk
+evaluation (~2.1 MB raw, dominated by TipTap/ProseMirror, which the composer
+genuinely needs) and the React render of the shell + compose surface. Cutting
+that further means either splitting TipTap out of the composer's first paint
+(placeholder editor, high product risk) or trimming the route chunk itself —
+next iteration's candidates, untouched here.
+
 ## Filtered revision verification
 
 - Targeted composer/draft regression tests: 162 passed.

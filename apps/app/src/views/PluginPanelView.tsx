@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { WorkerPoolContextProvider } from "@pierre/diffs/react";
 import { PageShell } from "@/components/ui/page-shell.js";
@@ -9,6 +10,7 @@ import {
 } from "@/lib/diff-worker-pool";
 import { useResolvedCodeThemePair } from "@/lib/code-theme";
 import { useSyncPierreWorkerPoolTheme } from "@/lib/pierre-worker-pool-theme";
+import { bootPluginFrontends } from "@/lib/plugin-frontend-lazy";
 import { usePluginSlots } from "@/lib/plugin-slots";
 
 // Plugins can render `@pierre/diffs` FileDiff (the specifier is shimmed to
@@ -45,6 +47,11 @@ interface PluginPanelViewProps {
 
 export function PluginPanelView(props: PluginPanelViewProps = {}) {
   const theme = useResolvedCodeThemePair();
+  // A plugin surface is on screen, so skip usePluginFrontendBoot's idle
+  // deferral and load frontends now (idempotent per page load).
+  useEffect(() => {
+    void bootPluginFrontends();
+  }, []);
   const params = useParams<{
     pluginId: string;
     panelPath: string;
