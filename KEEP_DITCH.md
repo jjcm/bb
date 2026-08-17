@@ -582,6 +582,92 @@ Cumulative kept improvement: **2,494 → 1,744 ms (−30%)**, plus FCP
 
 **Track A stopped. Final Sol keep/ditch follows.**
 
+---
+
+# Final Sol keep/ditch record (paste + load stack)
+
+This is the authoritative filter for PR #1 after Track A stopped. It reviews
+every landed product behavior against measured value, complexity, correctness,
+and maintenance cost. No Electron number appears below: all performance
+numbers are from the Linux VM under the harness named in each section.
+
+## Metric precision
+
+`measure-load.mjs` route-ready for `/` watches
+`[data-promptbox-editor-content]`. TipTap renders that wrapper before its
+post-mount editor effect attaches ProseMirror, so this metric means
+**promptbox wrapper present**, not "TipTap interactive" or TTI. FCP/LCP are
+Chromium paint entries. Actual editable readiness, input latency, Electron
+window startup, and macOS layout/paint remain unmeasured; use the strago steps
+above for those.
+
+## Composer paste product changes
+
+| Change | Sol verdict | Why it stays / complexity and tradeoff |
+| --- | --- | --- |
+| Markdown delimiter/range parser rewrite | **KEEP** | Dominant proven fix: 2,059 → **10.05 ms** on the final 1 MB synthetic single-line run (earlier filtered runs 11–13 ms). Medium-high algorithmic complexity is earned by the ~200× result, existing Markdown tests, and a committed thousands-of-delimiters regression test. Output behavior was differential-tested during development; the permanent suite covers supported semantics. |
+| Controlled editor value structural comparison | **KEEP** | Removes two full-prompt JSON serializations per edit (a stringify is 2.47 ms at 1 MB on the final run). Low complexity; cloned and changed mention resources have direct tests. The tiny resource-only stringify fallback is outside the large-text path. |
+| 256-character typeahead scan window | **KEEP** | 2.52 ms baseline → ~0.00 ms at 1 MB, on both edit and selection updates. Low complexity. Intentional limit: a windowed query can contain at most 254 characters. |
+| Large-document decoration mapping + deferred rebuild | **KEEP** | Removes synchronous full-text matcher work from edits over 100k positions (built-in regex alone 8.10 ms at 1 MB; plugin matchers are unbounded). Medium state/timer complexity is covered by mapping, stale-removal, refresh-cancellation tests. Tradeoff remains explicit: highlight additions/removals can lag ≤200 ms. |
+| Draft serialization at the existing persist boundary | **KEEP** | Removes 2.48 ms JSON work per 1 MB edit and performs it once per the pre-existing 250 ms persistence window. Pending reads, immediate overwrite, and page-hide flush are tested. No new crash-loss window. |
+| Non-subscribing `ThreadDetailView` draft accessor | **KEEP** | Stops an event-time quote/focus consumer from rerendering the whole timeline on every keystroke. Small, architecturally correct use of the already-documented imperative accessor; shared mutation helper avoids divergent behavior. Render win was established by subscription flow, not assigned a fabricated time. |
+| Deterministic fixture + gated paste microbenchmark | **KEEP** | No production runtime cost. It is correctly labeled a synthetic primitive-level microbenchmark, not Electron or end-to-end input latency. |
+
+Final paste harness (Linux Node/Vitest, synthetic fixture): 1 MB rich-Markdown
+parse **10.05 ms**; trigger scan ~0.00 ms. The 2.47 ms value stringify,
+8.10 ms decoration regex, and 2.48 ms draft stringify rows are retained as
+the isolated work removed/deferred, not falsely reported as end-to-end
+keystroke time.
+
+## Load-time product changes
+
+| Change | Sol verdict | Why it stays / complexity and tradeoff |
+| --- | --- | --- |
+| Pierre/Shiki diff-island split (`GitDiffCard`, file preview code, timeline/panel diffs) | **KEEP** | Removes pierre/Shiki from the workspace route's static closure and cuts the shared chunk 2,148 → 1,304 KB raw. The facade/extraction is broad but consumer APIs remain stable, focused diff/panel tests pass, and lazy islands share one entry to limit fragmentation. First island shows a skeleton. |
+| Per-island pierre worker-pool boundary | **KEEP** | Necessary to make the split real without a route-level static pierre import. Pierre's package singleton means providers share one pool. Tradeoff: pool terminates after the last island and respawns on a later first island. |
+| Content-gated lazy KaTeX | **KEEP-WITH-TWEAK APPLIED** | Settings/non-math routes no longer fetch KaTeX. TeX source remains readable until the deferred renderer arrives; math/security tests await and verify the final output/order. Final filter added rejection handling: stale-deploy/network chunk failures no longer become unhandled promises, the readable fallback remains, and a later math mount can retry. |
+| Plugin-frontend idle deferral + panel escape hatch | **KEEP** | Largest load win: current-iteration baseline 2,319 → 1,836 ms wrapper-ready (−20.8%). Six plugin bundles now evaluate after route content; plugin-panel deep links boot immediately and were smoke-tested with real automations content. Tradeoff: ordinary plugin slots appear ~0.5–1.5 s later, bounded by timer + idle timeout. |
+| Lazy `ThreadDetailView` + isolated legacy redirect | **KEEP** | Default route static closure −899 KB raw; measured `/` 1,853 → 1,722 ms (−7.1%). Canonical cold thread route did not regress. First `/`→thread navigation can show a blank pane for one cached chunk round trip. Tests now await lazy pane content. |
+| Bundle graph dump, load harness, profiler mode | **KEEP** | Durable, dependency-free measurement/attribution tools. `bundle-stats-all.json` is opt-in and gitignored. The harness now exposes its marker semantics and VM limits. |
+| Boot budget ratchets | **KEEP** | Final budget 1,672 KB raw / 450 KB brotli admits measured +12.4 KB brotli stream-fragmentation cost in exchange for ~2.25 MB raw removed from the default route parse closure. The reason now lives in `bundle-budget.json`, and the checker correctly counts intentionally uncompressed sub-1KB chunks at raw wire size. Lower the ratchet when chunks reconsolidate. |
+
+## DITCH / absent spike work
+
+- **DITCH:** `measure-chunk-eval.mjs`. It was one-off investigation code
+  coupled to hashed chunk filenames, not a durable harness; removed in the
+  final filter.
+- **No zod product change landed.** The measured spike remains documented as
+  a miss; no proxy/lazy-schema rewrite is present.
+- **No full three-way pane split landed.** It was measured as a wash with
+  extra boot fragmentation and reverted. Root compose remains static;
+  ThreadDetailView alone is lazy.
+
+## Final measurements on filtered HEAD
+
+Linux headless Chromium, localhost production server, seeded 400-thread /
+120k-event database, cold cache, 4× CPU throttle, medians of 7:
+
+| Route | FCP | LCP | Route-ready |
+| --- | ---: | ---: | ---: |
+| `/` | 844 ms | 1,148 ms | **1,721 ms** (promptbox wrapper) |
+| canonical project/thread route | 868 ms | 2,176 ms | 2,159 ms |
+| `/settings` | 792 ms | 1,040 ms | 1,035 ms |
+
+Cumulative `/` wrapper-ready result: **2,494 → 1,721 ms (−31%)**.
+Original-to-final FCP: 920 → 844 ms; LCP: 1,236 → 1,148 ms. These are
+Chromium-on-Linux relative measurements, not Electron claims.
+
+## Final tradeoff summary
+
+- +12.4 KB brotli boot fragmentation (+2.8%) and 26 boot chunks instead of
+  14, against ~2.25 MB raw removed from the default route parse/execute path.
+- First diff/file-code/thread-detail island incurs one lazy load; skeletons
+  cover diff/file-code, while a first thread pane can be briefly blank.
+- Plugin UI intentionally comes after app content except on plugin deep links.
+- Large draft highlights lag ≤200 ms; typeahead queries cap at 254 chars.
+- KaTeX and pierre workers can respawn after unload/failure as documented.
+- Electron FCP/LCP/TTI and macOS cold start remain hypotheses pending strago.
+
 ## Filtered revision verification
 
 - Targeted composer/draft regression tests: 162 passed.
