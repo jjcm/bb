@@ -26,7 +26,7 @@
     "so the check names them explicitly."
   ],
   "maxBootBytes": 1707047,
-  "maxBootBrotliBytes": 448512,
+  "maxBootBrotliBytes": 452992,
   "forbiddenBootPackages": [
     "@pierre/diffs",
     "@pierre/theming",

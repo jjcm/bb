@@ -22,9 +22,9 @@ import {
 import {
   isPreviewableImagePath,
   isSvgGitDiffFile,
-  parseGitDiffFiles,
   type ParsedGitDiffFile,
 } from "@/components/git-diff/git-diff-parsing";
+import { parseGitDiffFiles } from "@/components/git-diff/git-diff-patch-parsing";
 import { Button } from "@bb/shared-ui/button";
 import { FilePathLink } from "@/components/ui/file-path-link.js";
 import { Skeleton } from "@bb/shared-ui/skeleton";

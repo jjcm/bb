@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import {
   assertNever,
   fileNameFromPath,
@@ -8,15 +8,25 @@ import {
 import { EventCodeBlock } from "../../ui/event-code-block.js";
 import { ImageLightbox } from "../../ui/image-lightbox.js";
 import { EmptyStatePanel } from "@bb/shared-ui/empty-state";
+import { Skeleton } from "@bb/shared-ui/skeleton";
 import { TerminalOutputBlock } from "./TerminalOutputBlock.js";
 import { TimelineDetailScroll } from "./TimelineDetailScroll.js";
-import { TimelineFileDiffBlock } from "./TimelineFileDiffBlock.js";
 import { ToolCallDetailBlock } from "./ToolCallDetailBlock.js";
 import { QuestionWorkRowBody } from "./QuestionWorkRowBody.js";
 import { WorkflowWorkRowBody } from "./WorkflowWorkRowBody.js";
 import { buildThreadHostFileContentUrl } from "@/lib/file-content-urls";
 import type { ThreadTimelineTheme } from "./types.js";
 import type { ThreadTimelineImageViewSrcResolver } from "./types.js";
+
+// Lazy: the timeline diff block parses patches with `@pierre/diffs` during
+// render, and that import drags the full pierre + Shiki closure (~1.4 MB
+// raw). Loading it on demand keeps the workspace route chunk — which gates
+// every session's first paint — free of pierre.
+const TimelineFileDiffBlock = lazy(() =>
+  import("@/components/git-diff/diff-islands").then((module) => ({
+    default: module.TimelineFileDiffBlock,
+  })),
+);
 
 export interface WorkRowBodyProps {
   resolveImageViewSrc?: ThreadTimelineImageViewSrcResolver;
@@ -138,11 +148,22 @@ export function WorkRowBody({
     case "file-change":
       return (
         <div className="space-y-2">
-          <TimelineFileDiffBlock
-            change={row.change}
-            themeType={themeType}
-            workspaceRootPath={workspaceRootPath}
-          />
+          <Suspense
+            fallback={
+              <div
+                className="rounded-lg border border-border bg-background p-3"
+                aria-busy
+              >
+                <Skeleton className="h-3 w-48 rounded-sm" />
+              </div>
+            }
+          >
+            <TimelineFileDiffBlock
+              change={row.change}
+              themeType={themeType}
+              workspaceRootPath={workspaceRootPath}
+            />
+          </Suspense>
           {row.stderr ? (
             <TimelineDetailScroll
               size="base"

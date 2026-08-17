@@ -174,6 +174,138 @@ parse work disappears, inspect Chromium layout/paint for the wrapped
 single-line editor. That result would identify a separate Electron bottleneck,
 not invalidate the VM microbenchmark.
 
+---
+
+# Load-time iteration (Track A, on top of the paste keepers)
+
+This section covers the app-wide load-time work added after the composer
+paste review above. Nothing above was reverted or rewritten.
+
+## What was measured first (no guessing)
+
+Harness: `apps/app/scripts/measure-load.mjs` — headless Chromium (Linux VM),
+production build served by the real bb server on localhost against a seeded
+database (12 projects / 400 threads / ~120k events via `pnpm seed:perf`),
+cold cache, 4× CPU throttle, medians of 7 runs, plus a per-run script
+waterfall. **These are Linux Chromium numbers over localhost, not Electron
+numbers.** Bundle attribution: `BB_BUNDLE_STATS_ALL=1 pnpm --dir apps/app run
+build` writes `bundle-stats-all.json` (every chunk, packages, import edges).
+
+Baseline finding: on the default route `/`, first paint lands ~900 ms but the
+composer only becomes present at **~2,494 ms**. The gap is one synchronous
+script wave: the lazy workspace route chunk statically dragged
+`@pierre/diffs` + the entire Shiki engine + all TipTap extensions (one shared
+2,148 KB raw / 514 KB brotli chunk) plus KaTeX (253 KB raw) — pierre, Shiki,
+and KaTeX parse+execute before the composer can mount, on every session,
+even when no diff or math is ever shown.
+
+## The fix (single biggest measured bottleneck)
+
+Cut every static edge from the workspace route graph to `@pierre/diffs`,
+Shiki, and KaTeX:
+
+- `git-diff-parsing.ts` split: pierre-free helpers stay; runtime parse
+  entry points moved to `git-diff-patch-parsing.ts` (pierre-static, only
+  reachable from lazy diff UI).
+- `GitDiffCard` became a lazy facade (same API/props for all consumers,
+  skeleton fallback); the real card provides the shared pierre worker pool
+  itself (`PierrePoolBoundary`).
+- `FilePreview`'s pierre-rendered code view extracted to `FilePreviewCode`
+  behind `React.lazy` (skeleton fallback); `FilePreview` itself is now
+  pierre-free.
+- `TimelineFileDiffBlock` and `DiffFileCard` lazy at their single consumers;
+  `PluginPanelView` lazy in `SplitThreadArea`.
+- All four diff islands funnel through one lazy entry
+  (`git-diff/diff-islands.tsx`) so they share one async chunk instead of
+  fragmenting shared modules into extra boot chunks.
+- The old `ThreadDetailWorkerPoolProvider` ancestor was deleted; pierre's
+  pool is a package-level singleton, so per-island providers still share one
+  pool.
+- `rehype-katex` + KaTeX CSS load lazily inside `MarkdownPreview`, and only
+  when content can contain math (`$$`). Until loaded, TeX renders as
+  readable `language-math` code — no blank state.
+
+## Before/after (this VM, headless Chromium, 4× throttle, medians of 7)
+
+| Metric | Baseline | After | Delta |
+| --- | ---: | ---: | ---: |
+| `/` route-ready (composer present) | 2,494 ms | 2,278 ms | −216 ms (−8.7%) |
+| `/` FCP | 920 ms | 864 ms | −56 ms |
+| `/` LCP | 1,236 ms | 1,168 ms | −68 ms |
+| `/settings` route-ready | 1,089 ms | 1,107 ms | noise |
+| `/threads/:id` FCP / LCP | 848 / 1,148 ms | 848 / 1,152 ms (median run) | noise |
+| Workspace shared chunk | 2,148 KB raw / 514 KB br | 1,304 KB raw / 325 KB br | −844 KB raw / −189 KB br |
+| Route-wave transfer before route-ready (`/`) | ~3.2 MB raw | ~2.2 MB raw | ~−1.35 MB raw incl. KaTeX |
+| Boot payload | 1,664.0 KB raw / 436.8 KB br (14 chunks) | 1,665.9 KB raw / 441.1 KB br (22 chunks) | +1.9 KB raw / +4.3 KB br |
+
+Verified structurally (not just by timing): the route chunk's static import
+closure contains none of `@pierre/diffs`, `@pierre/theming`, `shiki`,
+`@shikijs/*`, `katex`, `rehype-katex` (asserted by walking
+`bundle-stats-all.json`); `/settings` no longer downloads KaTeX at all; the
+existing `forbiddenBootPackages` check still passes. Full app suite (349
+files / 2,778 tests), typecheck, and lint pass; headless Chromium shows no
+console errors on `/`, `/threads/:id`, `/settings`.
+
+## Tradeoffs (honest list)
+
+- **Boot brotli budget raised 438.0 → 442.4 KB** (`bundle-budget.json`
+  ratchet; the doc requires a stated reason): the new lazy boundaries split
+  the boot graph into 22 chunks instead of 14, and more independent brotli
+  streams compress slightly worse. +4.3 KB brotli on boot buys ~−189 KB
+  brotli / −844 KB raw off the route-interactive wave and removes pierre,
+  Shiki, and KaTeX from it entirely. Raw budget was not raised.
+- Diff cards, the file-preview code view, and plugin panels render a
+  skeleton for one network+parse round-trip the first time one appears in a
+  session. After that the chunk is cached.
+- The pierre worker pool now terminates when the last diff island unmounts
+  and respawns on the next one (pierre's own instance counting); previously
+  it lived for the whole workspace route. Worker respawn is off the main
+  thread; diff-heavy scrolling re-uses mounted islands so churn is bounded.
+- Math rendering appears one deferred load after first `$$` content; TeX
+  source is readable meanwhile.
+- The remaining `/` route-ready gap (~2.3 s at 4× throttle) is TipTap +
+  composer + plugin frontends executing after the wave — that is the next
+  iteration's measured target, deliberately not attempted here.
+
+## VM vs Electron (unchanged rule)
+
+Everything above is Linux headless Chromium over localhost. Electron cold
+start (main-process boot, window creation, server spawn), macOS compositor
+behavior, real disk I/O, and input latency are unmeasured. The −216 ms
+route-ready delta at 4× throttle should compress toward ~−50–100 ms on fast
+Apple silicon and grow on slower machines; treat that as hypothesis until
+the strago run.
+
+## strago (macOS Electron) measurement steps
+
+1. Build both revisions of the desktop app (`main` as baseline, this
+   branch): `pnpm --dir apps/desktop run package` (or `dist`), or run the
+   packaged app against a production server build.
+2. Seed a realistic database once:
+   `pnpm seed:perf -- --data-dir <test-data-dir>` (never `~/.bb`).
+3. **Cold start:** quit the app fully, `time` from launch to first window
+   paint; also record the DevTools Performance timeline during launch
+   (View → Toggle Developer Tools before quitting so it reopens attached, or
+   use `BB_DESKTOP_APP_URL` dev wiring). Repeat 5×, take medians.
+4. **Shell FCP/LCP + route-ready:** in the app's DevTools console, run a
+   Performance recording, then hard-reload (Cmd+Shift+R). Read FCP/LCP from
+   the Timings track. Route-ready markers: `/` and thread detail →
+   `[data-promptbox-editor-content]` appears; settings → first settings
+   control. `apps/app/scripts/measure-load.mjs` also works against the
+   packaged app's local server URL (`node scripts/measure-load.mjs --base
+   http://127.0.0.1:38886 --routes "/,/threads/<id>,/settings"`) using
+   installed Chrome as the measurement browser — label those numbers
+   Chromium-on-macOS, not Electron.
+5. **Thread list:** with the seeded DB, measure time from reload to the
+   sidebar thread list rendering rows (Performance recording; the list is in
+   the eager shell, so watch long tasks between FCP and list paint).
+6. **Diff-island tradeoff check:** open a thread with file diffs and confirm
+   the skeleton→card swap is acceptable on first open (this iteration's
+   regression surface); scroll a long diff panel and watch for worker-pool
+   respawn jank.
+7. Compare against baseline medians; anything within run-to-run spread is
+   noise, not a win or regression.
+
 ## Filtered revision verification
 
 - Targeted composer/draft regression tests: 162 passed.

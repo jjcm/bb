@@ -1,8 +1,11 @@
-import { parsePatchFiles, processFile, type FileContents } from "@pierre/diffs";
 import type { GitDiffFileChangeKind } from "@bb/server-contract";
 
+// Type-only reference into @pierre/diffs: erased at compile time, so this
+// module stays pierre-free and safe to import from route-critical code. The
+// runtime parse entry points live in ./git-diff-patch-parsing.ts, which is
+// only reachable from lazily loaded diff UI.
 export type ParsedGitDiffFile = ReturnType<
-  typeof parsePatchFiles
+  typeof import("@pierre/diffs").parsePatchFiles
 >[number]["files"][number];
 
 export type { GitDiffFileChangeKind };
@@ -11,49 +14,6 @@ export interface GitDiffStats {
   filesCount: number;
   insertions: number;
   deletions: number;
-}
-
-export function parseGitDiffFiles(
-  diff: string,
-): ReturnType<typeof parsePatchFiles>[number]["files"] {
-  if (diff.trim().length === 0) return [];
-  try {
-    return parsePatchFiles(diff).flatMap((patch) => patch.files);
-  } catch {
-    return [];
-  }
-}
-
-export interface GitDiffContextEnrichmentInput {
-  fileDiff: ParsedGitDiffFile;
-  oldFile: FileContents;
-  newFile: FileContents;
-  patchText?: string;
-}
-
-/**
- * Reparses a card's raw file patch with both full file sides attached. The
- * diff renderer only exposes expand-context controls when `isPartial` is false
- * and `additionLines` / `deletionLines` contain complete file contents.
- */
-export function enrichGitDiffFileForContext({
-  fileDiff,
-  oldFile,
-  newFile,
-  patchText,
-}: GitDiffContextEnrichmentInput): ParsedGitDiffFile {
-  if (!patchText) return fileDiff;
-
-  return (
-    processFile(patchText, {
-      oldFile,
-      newFile,
-      cacheKey:
-        fileDiff.cacheKey === undefined
-          ? undefined
-          : `${fileDiff.cacheKey}:context`,
-    }) ?? fileDiff
-  );
 }
 
 export function summarizeGitDiff(

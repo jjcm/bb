@@ -7,7 +7,7 @@ import {
   GitDiffCard,
   GIT_DIFF_VIEW_BASE_OPTIONS,
 } from "@/components/git-diff/GitDiffCard";
-import { parseGitDiffFiles } from "@/components/git-diff/git-diff-parsing";
+import { parseGitDiffFiles } from "@/components/git-diff/git-diff-patch-parsing";
 
 /**
  * Manual preview for the diff panel's theme bridge (Layer 1). The diff renderer

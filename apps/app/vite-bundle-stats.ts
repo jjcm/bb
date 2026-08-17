@@ -65,6 +65,39 @@ export function bundleStats(): Plugin {
       const target = resolve(appDir, "bundle-stats.json");
       await mkdir(dirname(target), { recursive: true });
       await writeFile(target, `${JSON.stringify(stats, null, 2)}\n`);
+
+      // Optional full-graph dump for load-time investigations: every chunk
+      // with its size, contained packages, app modules, and import edges.
+      // Enable with BB_BUNDLE_STATS_ALL=1; written next to bundle-stats.json.
+      if (process.env.BB_BUNDLE_STATS_ALL === "1") {
+        const allChunks = Object.values(bundle).flatMap((output) => {
+          if (output.type !== "chunk") return [];
+          const packages = new Set<string>();
+          const appModules: string[] = [];
+          for (const moduleId of output.moduleIds ?? []) {
+            const name = packageNameOf(moduleId);
+            if (name !== null) packages.add(name);
+            else if (moduleId.includes("/src/")) {
+              appModules.push(moduleId.slice(moduleId.indexOf("/src/")));
+            }
+          }
+          return [
+            {
+              fileName: output.fileName,
+              bytes: Buffer.byteLength(output.code),
+              isEntry: output.isEntry,
+              imports: output.imports,
+              dynamicImports: output.dynamicImports,
+              packages: [...packages].sort(),
+              appModules: appModules.sort(),
+            },
+          ];
+        });
+        await writeFile(
+          resolve(appDir, "bundle-stats-all.json"),
+          `${JSON.stringify(allChunks, null, 2)}\n`,
+        );
+      }
     },
   };
 }

@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import {
-  enrichGitDiffFileForContext,
   formatGitDiffFileLabel,
   getGitDiffFileChangeKind,
   getOpenableGitDiffPath,
-  parseGitDiffFiles,
   summarizeGitDiff,
 } from "./git-diff-parsing";
+import {
+  enrichGitDiffFileForContext,
+  parseGitDiffFiles,
+} from "./git-diff-patch-parsing";
 
 const SAMPLE_DIFF = [
   "diff --git a/src/old.ts b/src/new.ts",

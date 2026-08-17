@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from "react";
 import { useAtom } from "jotai";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { DiffFileEntry, DiffPatchEntry } from "@bb/server-contract";
@@ -11,7 +11,15 @@ import {
   useEnvironmentDiffPatches,
 } from "@/hooks/queries/use-environment-diff-patches";
 import { cn } from "@bb/shared-ui/lib/utils";
-import { DiffFileCard } from "./DiffFileCard";
+// Lazy: DiffFileCard parses patches with `@pierre/diffs` at render time, and
+// that import drags the full pierre + Shiki closure. Loading it on demand
+// keeps the diff panel (and the workspace route chunk that statically reaches
+// this file) free of pierre until a diff card actually renders.
+const DiffFileCard = lazy(() =>
+  import("@/components/git-diff/diff-islands").then((module) => ({
+    default: module.DiffFileCard,
+  })),
+);
 import {
   diffFileCardStateAtomFamily,
   estimateCardHeight,
@@ -292,19 +300,28 @@ function DiffFileRow({
   }, [entry.path, retry]);
 
   return (
-    <DiffFileCard
-      entry={entry}
-      diffViewOptions={diffViewOptions}
-      filePathRoot={filePathRoot}
-      isCollapsed={collapsed}
-      onToggleCollapsed={handleToggleCollapsed}
-      patchState={patchState}
-      onLoadPatch={handleLoadPatch}
-      onRetry={handleRetry}
-      onOpenFileInEditor={onOpenFileInEditor}
-      onOpenFilePreview={onOpenFilePreview}
-      onRequestFileContents={onRequestFileContents}
-      onSelectionAddToChat={onSelectionAddToChat}
-    />
+    <Suspense
+      fallback={
+        <div
+          className="h-9 animate-pulse rounded-lg border border-border bg-background"
+          aria-busy
+        />
+      }
+    >
+      <DiffFileCard
+        entry={entry}
+        diffViewOptions={diffViewOptions}
+        filePathRoot={filePathRoot}
+        isCollapsed={collapsed}
+        onToggleCollapsed={handleToggleCollapsed}
+        patchState={patchState}
+        onLoadPatch={handleLoadPatch}
+        onRetry={handleRetry}
+        onOpenFileInEditor={onOpenFileInEditor}
+        onOpenFilePreview={onOpenFilePreview}
+        onRequestFileContents={onRequestFileContents}
+        onSelectionAddToChat={onSelectionAddToChat}
+      />
+    </Suspense>
   );
 }
