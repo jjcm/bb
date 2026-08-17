@@ -229,7 +229,7 @@ Shiki, and KaTeX:
 
 | Metric | Baseline | After | Delta |
 | --- | ---: | ---: | ---: |
-| `/` route-ready (composer present) | 2,494 ms | 2,278 ms | −216 ms (−8.7%) |
+| `/` route-ready (promptbox wrapper present) | 2,494 ms | 2,278 ms | −216 ms (−8.7%) |
 | `/` FCP | 920 ms | 864 ms | −56 ms |
 | `/` LCP | 1,236 ms | 1,168 ms | −68 ms |
 | `/settings` route-ready | 1,089 ms | 1,107 ms | noise |
@@ -356,7 +356,7 @@ The harness now also records API request timing. The previous report guessed
 
 | Metric | Baseline (PR HEAD) | After | Delta |
 | --- | ---: | ---: | ---: |
-| `/` route-ready (composer present) | 2,319 ms | **1,836 ms** | **−483 ms (−20.8%)** |
+| `/` route-ready (promptbox wrapper present) | 2,319 ms | **1,836 ms** | **−483 ms (−20.8%)** |
 | `/` FCP / LCP | 856 / 1,160 ms | 868 / 1,156 ms | noise |
 | `/settings` route-ready | 1,118 ms | 1,065 ms | −53 ms (−4.7%) |
 | `/settings` LCP | 1,128 ms | 1,072 ms | −56 ms |
@@ -450,7 +450,7 @@ and forbidden-route package assertions still hold.
 
 | Metric | Baseline (PR HEAD) | After | Delta |
 | --- | ---: | ---: | ---: |
-| `/` route-ready (composer present) | 1,853 ms | **1,722 ms** | **−131 ms (−7.1%)** |
+| `/` route-ready (promptbox wrapper present) | 1,853 ms | **1,722 ms** | **−131 ms (−7.1%)** |
 | `/` FCP | 896 ms | 848 ms | −48 ms |
 | `/` LCP | 1,180 ms | 1,132 ms | −48 ms |
 | Thread route route-ready¹ | 2,226 ms | 2,140 ms | −86 ms (no regression) |
@@ -511,11 +511,13 @@ The KEEP bar for this spike was ≥5% ⇒ ≥87 ms.
 
 ## What the spike measured before writing any product code
 
-New tool committed for this: `apps/app/scripts/measure-chunk-eval.mjs` —
-imports a built chunk's dependencies first, then times the target chunk's
-`import()` alone, isolating parse+compile+execute from render work (the
-sampling profiler conflates them: render frames are attributed to the chunk
-that defines the component).
+A temporary spike script imported each built chunk's dependencies first, then
+timed the target chunk's `import()` alone, isolating parse+compile+execute from
+render work (the sampling profiler conflates them: render frames are
+attributed to the chunk that defines the component). The script was removed
+in the final Sol filter: it was single-use investigation code coupled to
+hashed build filenames, not a durable benchmark. The general-purpose
+`measure-load.mjs --profile` mode remains.
 
 Marginal module-eval cost at 4× throttle:
 
@@ -578,7 +580,7 @@ Cumulative kept improvement: **2,494 → 1,744 ms (−30%)**, plus FCP
 - Electron-side unknowns: everything here is Linux Chromium; strago steps in
   this document remain the source of truth for real Electron numbers.
 
-**Track A stopped pending Sol keep/ditch.**
+**Track A stopped. Final Sol keep/ditch follows.**
 
 ## Filtered revision verification
 

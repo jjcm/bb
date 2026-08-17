@@ -327,10 +327,20 @@ function loadRehypeKatex(): void {
     import("rehype-katex"),
     // Vite splits the stylesheet (fonts included) into its own lazy asset.
     import("katex/dist/katex.min.css"),
-  ]).then(([module]) => {
-    loadedRehypeKatex = module.default;
-    for (const listener of rehypeKatexListeners) listener();
-  });
+  ])
+    .then(([module]) => {
+      loadedRehypeKatex = module.default;
+      for (const listener of rehypeKatexListeners) listener();
+    })
+    .catch((error: unknown) => {
+      // A stale deployment or transient network failure must not become an
+      // unhandled rejection. Keep the readable TeX fallback and drop the
+      // cached rejection so a later math mount can retry the chunk.
+      rehypeKatexPromise = null;
+      console.warn(
+        `KaTeX renderer load failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
 }
 
 function subscribeRehypeKatex(listener: () => void): () => void {
