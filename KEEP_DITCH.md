@@ -496,6 +496,163 @@ invasive package-level change, deliberately not attempted in this iteration.
 
 ---
 
+# Track C: warm in-browser SPA navigation — one KEEP (−48% on first thread open)
+
+Tracks A and B both optimized the cold load. This track measures the other
+half of the hosted web app, and the half a user spends nearly all their time
+in: the SPA is **already up** and they click something. Environment for every
+number in this section: **production build, headless Chromium on Linux over
+localhost against the real bb server. Not Electron, not Vite dev.**
+
+It also answers the question Track A left open. Jacob's framing was that a warm
+thread open is "where Track A's lazy ThreadDetailView / pierre / Shiki /
+plugin-frontend should actually show, or fail to". One of them showed — as a
+cost, not a win.
+
+## The finish line
+
+`apps/app/scripts/measure-warm-nav.mjs`, 1440x900, cache disabled, fresh
+browser profile per run, no CPU throttle, seeded database (12 projects /
+400 threads / ~120k events).
+
+Each run loads `/` and waits until the shell is genuinely settled — sidebar and
+New thread painted, root composer painted, then a quiet beat — and only then
+clicks, timing from the in-page `mousedown` until the destination content is
+painted:
+
+| Probe | What it measures |
+| --- | --- |
+| `threadOpen1` | **Primary.** First thread opened in the session. |
+| `threadOpen2` | A second, different thread; per-thread work without one-time cost. |
+| `newThread` | Back to the root composer, `Ask anything.` painted. |
+| `settings` | A heavy non-thread view, as a third probe. |
+
+Markers land on the frame *after* the DOM condition first holds, so a number
+means the browser painted it. Every verdict below is **interleaved A/B** — two
+prebuilt dists alternating round by round, n=18–30 per arm — because
+single-build medians on this VM drift by more than most changes are worth.
+
+## Warm baseline at PR HEAD
+
+| Probe | Median |
+| --- | ---: |
+| `threadOpen1` | **469 ms** |
+| `threadOpen2` | 213 ms |
+| `newThread` | 107 ms |
+| `settings` | 152 ms |
+
+`--counters` splits the primary probe with Chromium's own counters:
+of `threadOpen1`'s 471 ms, ~305 ms is busy main thread (script 170 ms, style
+recalc 82 ms across ~45 recalculations, layout 8 ms) and ~165 ms is idle. A
+`devtools.timeline` trace of the same navigation shows **4,541 top-level tasks**
+— the mount is sliced across thousands of React scheduler yields, so wall time
+exceeds CPU time.
+
+Two Track A keeps provably cannot show on this path and were not credited or
+blamed: no pierre/Shiki/KaTeX chunk loads at all during a thread open (the
+fixture's threads contain no file diffs, so those islands never mount), and the
+plugin frontends have already booted during the settle window.
+
+## MISS — prefetch the lazy thread-pane chunk during idle
+
+If the first thread open pays a chunk round trip, warm the module while nothing
+is happening. Scheduled like `usePluginFrontendBoot` (short timer to skip the
+false-idle window, then `requestIdleCallback`).
+
+| Probe | baseline | after | Delta |
+| --- | ---: | ---: | ---: |
+| `threadOpen1` | 471.2 ms | 464.5 ms | −6.8 ms (−1.4%) |
+| `threadOpen2` | 222.1 ms | 216.3 ms | −5.8 ms |
+| `newThread` | 117.5 ms | 111.8 ms | −5.8 ms |
+| `settings` | 81.0 ms | 74.2 ms | −6.8 ms |
+
+**Reverted.** Note `settings` moved by the same −6.8 ms, and the prefetch cannot
+touch it: the whole column is drift, not effect. At a 1.5 s idle delay the
+prefetch was fully inert (the chunk was still requested *after* the click), and
+even in a deliberately settled session where it had provably run — 52 scripts
+loaded before the probes instead of 50 — it recovered only ~7 ms. **The chunk
+fetch was never the cost:** it overlaps the thread's own API requests, so
+removing it from the click path buys nothing.
+
+## KEEP — thread detail is a static import again
+
+Prefetching ruled out bytes, so the remaining suspect was the `React.lazy`
+boundary itself. A spike replaced it with a static import: **−194.7 ms
+(−41.7%)** on the first thread open. The confirming A/B on the real change,
+n=30 per arm:
+
+| Probe | baseline | after | Delta |
+| --- | ---: | ---: | ---: |
+| `threadOpen1` | 469.0 ms | **241.7 ms** | **−227.3 ms (−48.5%)** |
+| `threadOpen2` | 213.1 ms | 201.8 ms | −11.3 ms (−5.3%) |
+| `newThread` | 107.1 ms | 96.7 ms | −10.5 ms (−9.8%) |
+| `settings` | 151.8 ms | 153.1 ms | +1.4 ms (noise) |
+
+And on the cold path, n=28 per arm with `measure-hud.mjs`:
+
+| Cold metric | baseline | after | Delta |
+| --- | ---: | ---: | ---: |
+| HUD (sidebar + New thread painted) | 416.2 ms | 401.7 ms | −14.5 ms (no regression) |
+| Composer `Ask anything.` after click | 249.5 ms | **197.0 ms** | **−52.5 ms (−21.0%)** |
+
+| Boot payload | baseline | after |
+| --- | ---: | ---: |
+| raw / brotli / chunks | 1669.1 KB / 449.7 KB / 26 | 1666.1 KB / **441.2 KB** / **22** |
+
+### Why the lazy boundary was so expensive
+
+It was never really about the ~30 ms chunk fetch. A `React.lazy` suspend means
+the pane mounts on a **Suspense retry, at transition priority**, so the largest
+view in the app is rendered in sliced, yielding work instead of one pass. That
+is what the 4,541 tasks and the ~165 ms of otherwise unexplained idle in
+`threadOpen1` were. Removing the boundary removes the sliced retry; the
+remaining 242 ms is the render itself, and `threadOpen2` (which never had a
+suspend) barely moved, exactly as that explanation predicts.
+
+Track A reached the opposite conclusion honestly and from real data — it
+measured `/` **route-ready** (promptbox wrapper present) and saw −131 ms. That
+metric has since been retired precisely because it ranks work happening after
+the HUD is already on screen. On every metric now in use, static is better or
+neutral.
+
+### Tradeoffs
+
+- A session that never opens a thread still downloads and parses the thread
+  view as part of the workspace route chunk (~899 KB raw back in that route's
+  static closure). The measurements above say that costs nothing on this rig:
+  cold first paint is unchanged and the cold composer is 52 ms *faster*,
+  because the route wave is 22 chunks instead of 26. On a slow network the
+  extra bytes are a real cost that localhost cannot show — but so was the
+  round trip they replace, and the round trip was on the interaction path
+  while these bytes are not.
+- Boot brotli improved by 8.5 KB. `bundle-budget.json` keeps its current
+  limits and records the new headroom rather than ratcheting onto 441.2 KB,
+  which would leave the next ordinary feature nowhere to land.
+- `PluginPanelView` stays lazy on purpose: it is a deep-link-only surface, so
+  no ordinary navigation pays its suspend.
+
+### What a next warm track should look at (measured, not attempted)
+
+`threadOpen2` at ~202 ms is now the steady-state cost of opening a thread, and
+it is not dominated by any single chunk:
+
+- **~84 ms of style recalculation across ~45 recalcs**, essentially identical on
+  first and second open. Mounting a thread writes ~3,500 attributes, of which
+  ~1,300 are SVG path attributes for ~115 icons, plus `class` on ~768 elements.
+- **~106–125 ms of script**, spread across react-dom render, a scroll/measure
+  helper (~37 ms, doing ~36 `scrollHeight`/`clientHeight`/`clientWidth` reads),
+  and the thread view itself (~10 ms).
+- **~18 API requests per thread open**, in two waves; the second wave fires
+  after the big render pass. Three of them (`system/execution-options`,
+  `environments/status`, `environments/pull-request`) take ~165 ms each but land
+  after the paint, so they do not gate this metric — they would gate a
+  "thread fully interactive" metric.
+
+Cutting further means rendering less or re-rendering less on thread mount,
+which is a product decision, not a bundling one.
+
+---
+
 # Track B: cold browser load to a usable HUD — 3 misses, nothing kept
 
 Track A above optimized `measure-load.mjs` **route-ready** (promptbox wrapper
