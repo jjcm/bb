@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>bb desktop wrapper spike fixture</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+      }
+      header {
+        padding: 8px 16px;
+        border-bottom: 1px solid #8884;
+      }
+      #composer {
+        border: 1px solid #8888;
+        border-radius: 6px;
+        margin: 8px 16px;
+        min-height: 60px;
+        max-height: 200px;
+        overflow-y: auto;
+        padding: 8px;
+        white-space: pre-wrap;
+      }
+      #list {
+        height: 60vh;
+        overflow-y: auto;
+        margin: 0 16px;
+        border: 1px solid #8884;
+      }
+      #list > div {
+        padding: 6px 10px;
+        border-bottom: 1px solid #8882;
+      }
+      #status {
+        padding: 8px 16px;
+        font-size: 13px;
+        opacity: 0.7;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>bb wrapper spike fixture</strong>
+      <span id="shell-label"></span>
+    </header>
+    <div id="composer" contenteditable="true" aria-label="composer"></div>
+    <div id="list"></div>
+    <div id="status">booting…</div>
+    <script>
+      "use strict";
+
+      // Timings are reported in epoch milliseconds so the orchestrator can
+      // align page-side events with shell stdout events and its own spawn
+      // timestamp. Everything runs on one machine, so one clock.
+      const params = new URLSearchParams(location.search);
+      const shell = params.get("shell") ?? "unknown";
+      const win = Number(params.get("win") ?? "1");
+      const runId = params.get("run") ?? "no-run";
+      document.getElementById("shell-label").textContent =
+        ` — shell=${shell} win=${win}`;
+
+      // performance.timeOrigin + performance.now() drifts from Date.now() by
+      // several ms; calibrate once so page epochs align with Date.now()-based
+      // timestamps taken in the shell and the driver.
+      const clockOffsetMs =
+        Date.now() - performance.timeOrigin - performance.now();
+      const epoch = (perfTime) =>
+        performance.timeOrigin + perfTime + clockOffsetMs;
+      const status = (text) => {
+        document.getElementById("status").textContent = text;
+      };
+
+      const report = {
+        fcpMs: null,
+        firstRafMs: null,
+        navigationStartMs: performance.timeOrigin,
+        runId,
+        shell,
+        win,
+      };
+
+      // Paint Timing is supported by Chromium and recent WebKitGTK, but treat
+      // it as optional: firstRafMs (second requestAnimationFrame after
+      // DOMContentLoaded) is the cross-engine comparable "first frame" number.
+      let fcpWaiters = [];
+      try {
+        new PerformanceObserver((entries) => {
+          for (const entry of entries.getEntries()) {
+            if (entry.name === "first-contentful-paint") {
+              report.fcpMs = epoch(entry.startTime);
+              fcpWaiters.forEach((resolve) => resolve());
+              fcpWaiters = [];
+            }
+          }
+        }).observe({ buffered: true, type: "paint" });
+      } catch {
+        // Paint timing unsupported; fcpMs stays null.
+      }
+
+      function waitForFcp(timeoutMs) {
+        if (report.fcpMs !== null) {
+          return Promise.resolve();
+        }
+        return new Promise((resolve) => {
+          const timer = setTimeout(resolve, timeoutMs);
+          fcpWaiters.push(() => {
+            clearTimeout(timer);
+            resolve();
+          });
+        });
+      }
+
+      function firstFrame() {
+        return new Promise((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame((t) => {
+              resolve(epoch(t));
+            });
+          });
+        });
+      }
+
+      // Per-shell IPC bridge. Electron spikes expose window.spikeBridge from
+      // the preload; Tauri exposes window.__TAURI__ (withGlobalTauri).
+      function resolveBridge() {
+        if (typeof window.spikeBridge?.ping === "function") {
+          return { kind: "electron", ping: (p) => window.spikeBridge.ping(p) };
+        }
+        const invoke = window.__TAURI__?.core?.invoke;
+        if (typeof invoke === "function") {
+          return { kind: "tauri", ping: (p) => invoke("ping", { payload: p }) };
+        }
+        return null;
+      }
+
+      async function waitForBridge(timeoutMs) {
+        const deadline = performance.now() + timeoutMs;
+        for (;;) {
+          const bridge = resolveBridge();
+          if (bridge !== null) {
+            return bridge;
+          }
+          if (performance.now() > deadline) {
+            return null;
+          }
+          await new Promise((r) => setTimeout(r, 10));
+        }
+      }
+
+      function quantile(sorted, q) {
+        if (sorted.length === 0) return null;
+        const pos = (sorted.length - 1) * q;
+        const lo = Math.floor(pos);
+        const hi = Math.ceil(pos);
+        return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+      }
+
+      function summarize(samples) {
+        const sorted = [...samples].sort((a, b) => a - b);
+        const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+        return {
+          count: samples.length,
+          maxMs: sorted[sorted.length - 1],
+          meanMs: mean,
+          minMs: sorted[0],
+          p50Ms: quantile(sorted, 0.5),
+          p95Ms: quantile(sorted, 0.95),
+        };
+      }
+
+      async function measureIpc(bridge, payload, warmup, count) {
+        for (let i = 0; i < warmup; i += 1) {
+          await bridge.ping(payload);
+        }
+        const samples = [];
+        for (let i = 0; i < count; i += 1) {
+          const start = performance.now();
+          const echoed = await bridge.ping(payload);
+          const elapsed = performance.now() - start;
+          if (payload !== null && echoed !== payload) {
+            throw new Error("ipc echo mismatch");
+          }
+          samples.push(elapsed);
+        }
+        return summarize(samples);
+      }
+
+      function buildList(rows) {
+        const list = document.getElementById("list");
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < rows; i += 1) {
+          const div = document.createElement("div");
+          div.textContent =
+            `Row ${i} — the quick brown fox jumps over the lazy dog ` +
+            `(${(i * 7919) % 100000})`;
+          frag.append(div);
+        }
+        list.append(frag);
+        return list;
+      }
+
+      // Programmatic scroll driven by requestAnimationFrame. This measures the
+      // engine's layout/paint/compositor cadence on identical content — not OS
+      // input delivery, which cannot be driven identically across shells from
+      // inside the page.
+      async function measureScroll(list, durationMs) {
+        list.scrollTop = 0;
+        const deltas = [];
+        let last = null;
+        await new Promise((resolve) => {
+          const start = performance.now();
+          function step(t) {
+            if (last !== null) {
+              deltas.push(t - last);
+            }
+            last = t;
+            list.scrollTop += 120;
+            if (list.scrollTop + list.clientHeight >= list.scrollHeight) {
+              list.scrollTop = 0;
+            }
+            if (t - start < durationMs) {
+              requestAnimationFrame(step);
+            } else {
+              resolve();
+            }
+          }
+          requestAnimationFrame(step);
+        });
+        const summary = summarize(deltas);
+        const dropped = deltas.filter((d) => d > 34).length;
+        summary.droppedFramePct = (dropped / deltas.length) * 100;
+        return summary;
+      }
+
+      async function send(body) {
+        await fetch(`/report?run=${encodeURIComponent(runId)}&win=${win}`, {
+          body: JSON.stringify(body),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        });
+      }
+
+      async function main() {
+        await new Promise((resolve) => {
+          if (document.readyState !== "loading") {
+            resolve();
+          } else {
+            document.addEventListener("DOMContentLoaded", resolve, {
+              once: true,
+            });
+          }
+        });
+        report.domContentLoadedMs = Date.now();
+        report.firstRafMs = await firstFrame();
+
+        if (win !== 1) {
+          // Secondary window: report paint timing only, for the window-open
+          // scenario. FCP lands asynchronously after first paint.
+          await waitForFcp(2500);
+          await send(report);
+          status("secondary window reported");
+          return;
+        }
+
+        const bridge = await waitForBridge(10_000);
+        report.bridgeReadyMs = bridge === null ? null : Date.now();
+        report.bridgeKind = bridge?.kind ?? null;
+
+        if (bridge !== null) {
+          status("measuring IPC…");
+          report.ipcSmall = await measureIpc(bridge, "ping", 10, 200);
+          report.ipcLarge = await measureIpc(bridge, "x".repeat(262_144), 3, 25);
+        }
+
+        status("measuring scroll…");
+        const list = buildList(5000);
+        report.scroll = await measureScroll(list, 2000);
+
+        status("reporting…");
+        await send(report);
+        status("done");
+      }
+
+      main().catch(async (error) => {
+        report.error = error instanceof Error ? error.message : String(error);
+        await send(report).catch(() => {});
+        status(`error: ${report.error}`);
+      });
+    </script>
+  </body>
+</html>

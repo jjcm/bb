@@ -1,0 +1,371 @@
+{
+  "args": {
+    "iterations": 5,
+    "scenarios": [
+      "fixture",
+      "startup-real"
+    ]
+  },
+  "electronVersion": "41.7.0",
+  "environment": {
+    "arch": "x64",
+    "date": "2026-08-17T07:55:29.334Z",
+    "display": ":1",
+    "note": "Collected on a headless Linux VM under Xvfb (software rendering) unless stated otherwise. Absolute numbers are not representative of end-user macOS hardware; compare runs on the same machine only.",
+    "platform": "linux"
+  },
+  "fixture": {
+    "aggregate": {
+      "memoryProcessCount": 7,
+      "memoryPssMb": 437.28125,
+      "memoryRssMb": 783.10546875,
+      "pasteBySize": [
+        {
+          "chars": 10000,
+          "sendToFrameMs": 12.5
+        },
+        {
+          "chars": 100000,
+          "sendToFrameMs": 26.10009765625
+        }
+      ],
+      "scrollDroppedFramePct": 0,
+      "scrollMeanFrameMs": 19.507581395348836,
+      "scrollP95FrameMs": 33.399999999999636,
+      "startupAppReadyMs": 357,
+      "startupBridgeReadyMs": 721,
+      "startupFcpMs": 719.10009765625,
+      "startupFirstFrameMs": 715,
+      "typingP50Ms": 2.2001953125,
+      "typingP95Ms": 13.225195312499999,
+      "windowOpenCreatedMs": 120,
+      "windowOpenFirstFrameMs": 120.5
+    },
+    "iterations": [
+      {
+        "iteration": 1,
+        "metrics": {
+          "input": {
+            "pastes": [
+              {
+                "cdpAckMs": 5,
+                "chars": 10000,
+                "inputToFrameMs": 3.400146484375,
+                "sendToFrameMs": 8.10009765625
+              },
+              {
+                "cdpAckMs": 24,
+                "chars": 100000,
+                "inputToFrameMs": 4.60009765625,
+                "sendToFrameMs": 27.800048828125
+              }
+            ],
+            "typing": {
+              "count": 40,
+              "maxMs": 12.400146484375,
+              "meanMs": 4.70506591796875,
+              "minMs": 1.400146484375,
+              "p50Ms": 2.300048828125,
+              "p95Ms": 10.330053710937499,
+              "note": "CDP send → frame after input event, per typed char"
+            }
+          },
+          "memoryProcessCount": 7,
+          "memoryPssMb": 435.1669921875,
+          "memoryRssMb": 781.9296875,
+          "scroll": {
+            "count": 128,
+            "maxMs": 33.400000000000546,
+            "meanMs": 19.660140624999997,
+            "minMs": 16.597999999999956,
+            "p50Ms": 16.699999999999818,
+            "p95Ms": 33.30000000000018,
+            "droppedFramePct": 0,
+            "scrolledPx": 15120.25390625
+          },
+          "startup": {
+            "appReadyMs": 359,
+            "bridgeReadyMs": 730,
+            "fcpMs": 737.300048828125,
+            "firstFrameMs": 720.300048828125,
+            "mainStartMs": 282
+          },
+          "windowOpen": {
+            "createdMs": 125,
+            "firstFrameMs": 128.199951171875
+          }
+        },
+        "spawnEpochMs": 1786953329341
+      },
+      {
+        "iteration": 2,
+        "metrics": {
+          "input": {
+            "pastes": [
+              {
+                "cdpAckMs": 6,
+                "chars": 10000,
+                "inputToFrameMs": 8.300048828125,
+                "sendToFrameMs": 12.5
+              },
+              {
+                "cdpAckMs": 22,
+                "chars": 100000,
+                "inputToFrameMs": 4.599853515625,
+                "sendToFrameMs": 25.89990234375
+              }
+            ],
+            "typing": {
+              "count": 40,
+              "maxMs": 15.699951171875,
+              "meanMs": 6.247503662109375,
+              "minMs": 1.699951171875,
+              "p50Ms": 2.60009765625,
+              "p95Ms": 14.224951171874999,
+              "note": "CDP send → frame after input event, per typed char"
+            }
+          },
+          "memoryProcessCount": 7,
+          "memoryPssMb": 438.30859375,
+          "memoryRssMb": 783.05859375,
+          "scroll": {
+            "count": 130,
+            "maxMs": 33.400000000000546,
+            "meanMs": 19.486123076923075,
+            "minMs": 16.496000000000095,
+            "p50Ms": 16.699999999999818,
+            "p95Ms": 33.399999999999636,
+            "droppedFramePct": 0,
+            "scrolledPx": 15120.25390625
+          },
+          "startup": {
+            "appReadyMs": 357,
+            "bridgeReadyMs": 749,
+            "fcpMs": 751.5,
+            "firstFrameMs": 737,
+            "mainStartMs": 280
+          },
+          "windowOpen": {
+            "createdMs": 123,
+            "firstFrameMs": 128.300048828125
+          }
+        },
+        "spawnEpochMs": 1786953339974
+      },
+      {
+        "iteration": 3,
+        "metrics": {
+          "input": {
+            "pastes": [
+              {
+                "cdpAckMs": 5,
+                "chars": 10000,
+                "inputToFrameMs": 3.39990234375,
+                "sendToFrameMs": 7.199951171875
+              },
+              {
+                "cdpAckMs": 23,
+                "chars": 100000,
+                "inputToFrameMs": 4.60009765625,
+                "sendToFrameMs": 26.10009765625
+              }
+            ],
+            "typing": {
+              "count": 40,
+              "maxMs": 18.199951171875,
+              "meanMs": 4.989996337890625,
+              "minMs": 0.89990234375,
+              "p50Ms": 1.699951171875,
+              "p95Ms": 17.115087890625,
+              "note": "CDP send → frame after input event, per typed char"
+            }
+          },
+          "memoryProcessCount": 7,
+          "memoryPssMb": 437.1025390625,
+          "memoryRssMb": 783.10546875,
+          "scroll": {
+            "count": 128,
+            "maxMs": 33.400000000000546,
+            "meanMs": 19.660937500000003,
+            "minMs": 16.599999999999454,
+            "p50Ms": 16.699999999999818,
+            "p95Ms": 33.30000000000018,
+            "droppedFramePct": 0,
+            "scrolledPx": 15120.25390625
+          },
+          "startup": {
+            "appReadyMs": 351,
+            "bridgeReadyMs": 699,
+            "fcpMs": 698.5,
+            "firstFrameMs": 691.89990234375,
+            "mainStartMs": 282
+          },
+          "windowOpen": {
+            "createdMs": 120,
+            "firstFrameMs": 113.60009765625
+          }
+        },
+        "spawnEpochMs": 1786953350618
+      },
+      {
+        "iteration": 4,
+        "metrics": {
+          "input": {
+            "pastes": [
+              {
+                "cdpAckMs": 6,
+                "chars": 10000,
+                "inputToFrameMs": 7.89990234375,
+                "sendToFrameMs": 12.5
+              },
+              {
+                "cdpAckMs": 23,
+                "chars": 100000,
+                "inputToFrameMs": 4.5,
+                "sendToFrameMs": 26.400146484375
+              }
+            ],
+            "typing": {
+              "count": 40,
+              "maxMs": 12.300048828125,
+              "meanMs": 4.73260498046875,
+              "minMs": 0.900146484375,
+              "p50Ms": 2.2001953125,
+              "p95Ms": 11.6051025390625,
+              "note": "CDP send → frame after input event, per typed char"
+            }
+          },
+          "memoryProcessCount": 7,
+          "memoryPssMb": 437.28125,
+          "memoryRssMb": 784.63671875,
+          "scroll": {
+            "count": 129,
+            "maxMs": 33.400000000000546,
+            "meanMs": 19.507193798449613,
+            "minMs": 16.5,
+            "p50Ms": 16.699999999999818,
+            "p95Ms": 33.399999999999636,
+            "droppedFramePct": 0,
+            "scrolledPx": 15120.25390625
+          },
+          "startup": {
+            "appReadyMs": 357,
+            "bridgeReadyMs": 715,
+            "fcpMs": 715.10009765625,
+            "firstFrameMs": 709.10009765625,
+            "mainStartMs": 279
+          },
+          "windowOpen": {
+            "createdMs": 117,
+            "firstFrameMs": 120.5
+          }
+        },
+        "spawnEpochMs": 1786953361134
+      },
+      {
+        "iteration": 5,
+        "metrics": {
+          "input": {
+            "pastes": [
+              {
+                "cdpAckMs": 4,
+                "chars": 10000,
+                "inputToFrameMs": 12.7998046875,
+                "sendToFrameMs": 15.5
+              },
+              {
+                "cdpAckMs": 22,
+                "chars": 100000,
+                "inputToFrameMs": 4.5,
+                "sendToFrameMs": 25.400146484375
+              }
+            ],
+            "typing": {
+              "count": 40,
+              "maxMs": 14.60009765625,
+              "meanMs": 5.1450927734375,
+              "minMs": 0.60009765625,
+              "p50Ms": 1.5,
+              "p95Ms": 13.225195312499999,
+              "note": "CDP send → frame after input event, per typed char"
+            }
+          },
+          "memoryProcessCount": 7,
+          "memoryPssMb": 437.2919921875,
+          "memoryRssMb": 784.1171875,
+          "scroll": {
+            "count": 129,
+            "maxMs": 33.400000000000546,
+            "meanMs": 19.507581395348836,
+            "minMs": 16.5,
+            "p50Ms": 16.699999999999818,
+            "p95Ms": 33.399999999999636,
+            "droppedFramePct": 0,
+            "scrolledPx": 15360
+          },
+          "startup": {
+            "appReadyMs": 357,
+            "bridgeReadyMs": 721,
+            "fcpMs": 719.10009765625,
+            "firstFrameMs": 715,
+            "mainStartMs": 285
+          },
+          "windowOpen": {
+            "createdMs": 119,
+            "firstFrameMs": 113.39990234375
+          }
+        },
+        "spawnEpochMs": 1786953371744
+      }
+    ]
+  },
+  "startupReal": {
+    "aggregate": {
+      "appReadyMs": 350,
+      "fcpMs": 1852,
+      "firstFrameMs": 1860.10009765625,
+      "loadMs": 1748.800048828125,
+      "memoryProcessCount": 11,
+      "memoryPssMb": 1245.9306640625,
+      "memoryRssMb": 1769.6015625
+    },
+    "iterations": [
+      {
+        "iteration": 1,
+        "metrics": {
+          "appReadyMs": 350,
+          "fcpMs": 1841.60009765625,
+          "firstFrameMs": 1844.900146484375,
+          "loadMs": 1730.10009765625,
+          "memoryProcessCount": 11,
+          "memoryPssMb": 1247.759765625,
+          "memoryRssMb": 1770.5234375
+        }
+      },
+      {
+        "iteration": 2,
+        "metrics": {
+          "appReadyMs": 350,
+          "fcpMs": 1913.699951171875,
+          "firstFrameMs": 1911.89990234375,
+          "loadMs": 1778.89990234375,
+          "memoryProcessCount": 11,
+          "memoryPssMb": 1245.9306640625,
+          "memoryRssMb": 1769.6015625
+        }
+      },
+      {
+        "iteration": 3,
+        "metrics": {
+          "appReadyMs": 345,
+          "fcpMs": 1852,
+          "firstFrameMs": 1860.10009765625,
+          "loadMs": 1748.800048828125,
+          "memoryProcessCount": 11,
+          "memoryPssMb": 1231.4580078125,
+          "memoryRssMb": 1754.93359375
+        }
+      }
+    ]
+  }
+}

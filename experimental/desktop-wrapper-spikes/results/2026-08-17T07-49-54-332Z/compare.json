@@ -1,0 +1,1433 @@
+{
+  "args": {
+    "iterations": 5,
+    "shells": [
+      "electron-browserwindow",
+      "electron-webcontentsview",
+      "tauri"
+    ]
+  },
+  "environment": {
+    "arch": "x64",
+    "date": "2026-08-17T07:48:46.718Z",
+    "display": ":1",
+    "note": "Collected on a headless Linux VM under Xvfb (software rendering). Absolute numbers are not representative of end-user macOS hardware; use them for relative comparisons between shells on this machine only.",
+    "platform": "linux"
+  },
+  "shells": {
+    "electron-browserwindow": {
+      "aggregate": {
+        "appReadyMs": 190,
+        "bridgeReadyFromSpawnMs": 309,
+        "coldStartFcpMs": 303.89990234375,
+        "coldStartFirstFrameMs": 308.099853515625,
+        "ipcLargeP50Ms": 1,
+        "ipcLargeP95Ms": 1.3999999999068677,
+        "ipcSmallP50Ms": 0.10000000009313226,
+        "ipcSmallP95Ms": 0.20000000018626451,
+        "memoryProcessCount": 7,
+        "memoryPssMb": 346.1748046875,
+        "memoryRssMb": 693.78125,
+        "scrollDroppedFramePct": 0,
+        "scrollMeanFrameMs": 16.665338842975206,
+        "scrollP95FrameMs": 16.700000000000273,
+        "windowOpenFcpMs": 55.800048828125,
+        "windowOpenFirstFrameMs": 44.300048828125
+      },
+      "iterations": [
+        {
+          "iteration": 1,
+          "memory": {
+            "processCount": 7,
+            "processes": [
+              {
+                "comm": "electron",
+                "pid": 19310,
+                "pssKb": 91396,
+                "rssKb": 167272
+              },
+              {
+                "comm": "electron",
+                "pid": 19313,
+                "pssKb": 13891,
+                "rssKb": 55700
+              },
+              {
+                "comm": "electron",
+                "pid": 19314,
+                "pssKb": 12085,
+                "rssKb": 56056
+              },
+              {
+                "comm": "electron",
+                "pid": 19350,
+                "pssKb": 31745,
+                "rssKb": 83364
+              },
+              {
+                "comm": "electron",
+                "pid": 19339,
+                "pssKb": 81970,
+                "rssKb": 155676
+              },
+              {
+                "comm": "electron",
+                "pid": 19316,
+                "pssKb": 4108,
+                "rssKb": 13664
+              },
+              {
+                "comm": "electron",
+                "pid": 19363,
+                "pssKb": 119356,
+                "rssKb": 177384
+              }
+            ],
+            "totalPssKb": 354551,
+            "totalRssKb": 709116
+          },
+          "metrics": {
+            "appReadyMs": 191,
+            "bridgeReadyFromSpawnMs": 309,
+            "coldStartFcpMs": 303.89990234375,
+            "coldStartFirstFrameMs": 308.099853515625,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 1.5,
+              "meanMs": 1.027999999988824,
+              "minMs": 0.7999999998137355,
+              "p50Ms": 1,
+              "p95Ms": 1.440000000037252
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 4.2000000001862645,
+              "meanMs": 0.10449999999953434,
+              "minMs": 0,
+              "p50Ms": 0.10000000009313226,
+              "p95Ms": 0.20000000018626451
+            },
+            "memoryPssMb": 346.2412109375,
+            "memoryProcessCount": 7,
+            "memoryRssMb": 692.49609375,
+            "scroll": {
+              "count": 121,
+              "maxMs": 16.80000000000001,
+              "meanMs": 16.6661652892562,
+              "minMs": 16.5,
+              "p50Ms": 16.699999999999818,
+              "p95Ms": 16.700000000000273,
+              "droppedFramePct": 0
+            },
+            "windowOpenFcpMs": 55.10009765625,
+            "windowOpenFirstFrameMs": 44.300048828125
+          },
+          "runId": "electron-browserwindow-1",
+          "shellEvents": {
+            "main-start-late": 1786952926838,
+            "main-start": 1786952926837,
+            "app-ready": 1786952926910,
+            "window-created": 1786952926953,
+            "open-window-requested": 1786952930717,
+            "second-window-created": 1786952930725
+          },
+          "spawnEpochMs": 1786952926719
+        },
+        {
+          "iteration": 2,
+          "memory": {
+            "processCount": 7,
+            "processes": [
+              {
+                "comm": "electron",
+                "pid": 19405,
+                "pssKb": 90122,
+                "rssKb": 165456
+              },
+              {
+                "comm": "electron",
+                "pid": 19408,
+                "pssKb": 13759,
+                "rssKb": 55552
+              },
+              {
+                "comm": "electron",
+                "pid": 19409,
+                "pssKb": 12203,
+                "rssKb": 56068
+              },
+              {
+                "comm": "electron",
+                "pid": 19440,
+                "pssKb": 31828,
+                "rssKb": 83984
+              },
+              {
+                "comm": "electron",
+                "pid": 19432,
+                "pssKb": 82156,
+                "rssKb": 156032
+              },
+              {
+                "comm": "electron",
+                "pid": 19411,
+                "pssKb": 4119,
+                "rssKb": 13652
+              },
+              {
+                "comm": "electron",
+                "pid": 19461,
+                "pssKb": 120296,
+                "rssKb": 178068
+              }
+            ],
+            "totalPssKb": 354483,
+            "totalRssKb": 708812
+          },
+          "metrics": {
+            "appReadyMs": 192,
+            "bridgeReadyFromSpawnMs": 287,
+            "coldStartFcpMs": 283.5,
+            "coldStartFirstFrameMs": 286.10009765625,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 1.7999999998137355,
+              "meanMs": 1.0479999999701977,
+              "minMs": 0.7999999998137355,
+              "p50Ms": 1,
+              "p95Ms": 1.379999999888241
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 2,
+              "meanMs": 0.09699999999953433,
+              "minMs": 0,
+              "p50Ms": 0.10000000009313226,
+              "p95Ms": 0.20000000018626451
+            },
+            "memoryPssMb": 346.1748046875,
+            "memoryProcessCount": 7,
+            "memoryRssMb": 692.19921875,
+            "scroll": {
+              "count": 121,
+              "maxMs": 16.800000000000068,
+              "meanMs": 16.665338842975206,
+              "minMs": 16.59999999999991,
+              "p50Ms": 16.699999999999932,
+              "p95Ms": 16.700000000000273,
+              "droppedFramePct": 0
+            },
+            "windowOpenFcpMs": 54.10009765625,
+            "windowOpenFirstFrameMs": 56
+          },
+          "runId": "electron-browserwindow-2",
+          "shellEvents": {
+            "main-start-late": 1786952930944,
+            "main-start": 1786952930943,
+            "app-ready": 1786952931016,
+            "window-created": 1786952931042,
+            "open-window-requested": 1786952934805,
+            "second-window-created": 1786952934817
+          },
+          "spawnEpochMs": 1786952930824
+        },
+        {
+          "iteration": 3,
+          "memory": {
+            "processCount": 7,
+            "processes": [
+              {
+                "comm": "electron",
+                "pid": 19494,
+                "pssKb": 90211,
+                "rssKb": 166372
+              },
+              {
+                "comm": "electron",
+                "pid": 19497,
+                "pssKb": 13837,
+                "rssKb": 55808
+              },
+              {
+                "comm": "electron",
+                "pid": 19498,
+                "pssKb": 12002,
+                "rssKb": 56176
+              },
+              {
+                "comm": "electron",
+                "pid": 19531,
+                "pssKb": 31274,
+                "rssKb": 83696
+              },
+              {
+                "comm": "electron",
+                "pid": 19523,
+                "pssKb": 81894,
+                "rssKb": 156680
+              },
+              {
+                "comm": "electron",
+                "pid": 19500,
+                "pssKb": 4112,
+                "rssKb": 13856
+              },
+              {
+                "comm": "electron",
+                "pid": 19557,
+                "pssKb": 119194,
+                "rssKb": 178024
+              }
+            ],
+            "totalPssKb": 352524,
+            "totalRssKb": 710612
+          },
+          "metrics": {
+            "appReadyMs": 190,
+            "bridgeReadyFromSpawnMs": 325,
+            "coldStartFcpMs": 319.60009765625,
+            "coldStartFirstFrameMs": 325.10009765625,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 1.6000000000931323,
+              "meanMs": 0.9719999999552965,
+              "minMs": 0.7999999998137355,
+              "p50Ms": 0.8999999999068677,
+              "p95Ms": 1.279999999888241
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 0.8000000002793968,
+              "meanMs": 0.09600000000325963,
+              "minMs": 0,
+              "p50Ms": 0.10000000009313226,
+              "p95Ms": 0.20000000018626451
+            },
+            "memoryPssMb": 344.26171875,
+            "memoryProcessCount": 7,
+            "memoryRssMb": 693.95703125,
+            "scroll": {
+              "count": 121,
+              "maxMs": 16.799999999999955,
+              "meanMs": 16.666991735537188,
+              "minMs": 16.5,
+              "p50Ms": 16.69999999999999,
+              "p95Ms": 16.700000000000273,
+              "droppedFramePct": 0
+            },
+            "windowOpenFcpMs": 55.800048828125,
+            "windowOpenFirstFrameMs": 44.300048828125
+          },
+          "runId": "electron-browserwindow-3",
+          "shellEvents": {
+            "main-start-late": 1786952935023,
+            "main-start": 1786952935021,
+            "app-ready": 1786952935092,
+            "window-created": 1786952935147,
+            "open-window-requested": 1786952938917,
+            "second-window-created": 1786952938930
+          },
+          "spawnEpochMs": 1786952934902
+        },
+        {
+          "iteration": 4,
+          "memory": {
+            "processCount": 7,
+            "processes": [
+              {
+                "comm": "electron",
+                "pid": 19584,
+                "pssKb": 91533,
+                "rssKb": 167460
+              },
+              {
+                "comm": "electron",
+                "pid": 19587,
+                "pssKb": 14085,
+                "rssKb": 56260
+              },
+              {
+                "comm": "electron",
+                "pid": 19588,
+                "pssKb": 11951,
+                "rssKb": 55532
+              },
+              {
+                "comm": "electron",
+                "pid": 19620,
+                "pssKb": 31804,
+                "rssKb": 84308
+              },
+              {
+                "comm": "electron",
+                "pid": 19612,
+                "pssKb": 81680,
+                "rssKb": 155864
+              },
+              {
+                "comm": "electron",
+                "pid": 19590,
+                "pssKb": 4104,
+                "rssKb": 13628
+              },
+              {
+                "comm": "electron",
+                "pid": 19647,
+                "pssKb": 119108,
+                "rssKb": 177380
+              }
+            ],
+            "totalPssKb": 354265,
+            "totalRssKb": 710432
+          },
+          "metrics": {
+            "appReadyMs": 188,
+            "bridgeReadyFromSpawnMs": 321,
+            "coldStartFcpMs": 316,
+            "coldStartFirstFrameMs": 321.199951171875,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 4.600000000093132,
+              "meanMs": 1.1759999999962747,
+              "minMs": 0.8999999999068677,
+              "p50Ms": 1,
+              "p95Ms": 1.3999999999068677
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 0.3000000002793968,
+              "meanMs": 0.08350000000093133,
+              "minMs": 0,
+              "p50Ms": 0.10000000009313226,
+              "p95Ms": 0.20000000018626451
+            },
+            "memoryPssMb": 345.9619140625,
+            "memoryProcessCount": 7,
+            "memoryRssMb": 693.78125,
+            "scroll": {
+              "count": 121,
+              "maxMs": 16.800000000000182,
+              "meanMs": 16.665338842975206,
+              "minMs": 16.5,
+              "p50Ms": 16.699999999999818,
+              "p95Ms": 16.799999999999955,
+              "droppedFramePct": 0
+            },
+            "windowOpenFcpMs": 59.60009765625,
+            "windowOpenFirstFrameMs": 44.10009765625
+          },
+          "runId": "electron-browserwindow-4",
+          "shellEvents": {
+            "main-start-late": 1786952939124,
+            "main-start": 1786952939123,
+            "app-ready": 1786952939194,
+            "window-created": 1786952939244,
+            "open-window-requested": 1786952943017,
+            "second-window-created": 1786952943030
+          },
+          "spawnEpochMs": 1786952939006
+        },
+        {
+          "iteration": 5,
+          "memory": {
+            "processCount": 7,
+            "processes": [
+              {
+                "comm": "electron",
+                "pid": 19672,
+                "pssKb": 91063,
+                "rssKb": 167296
+              },
+              {
+                "comm": "electron",
+                "pid": 19675,
+                "pssKb": 13932,
+                "rssKb": 55792
+              },
+              {
+                "comm": "electron",
+                "pid": 19676,
+                "pssKb": 12319,
+                "rssKb": 56464
+              },
+              {
+                "comm": "electron",
+                "pid": 19711,
+                "pssKb": 31653,
+                "rssKb": 83232
+              },
+              {
+                "comm": "electron",
+                "pid": 19701,
+                "pssKb": 82366,
+                "rssKb": 155840
+              },
+              {
+                "comm": "electron",
+                "pid": 19678,
+                "pssKb": 4133,
+                "rssKb": 13656
+              },
+              {
+                "comm": "electron",
+                "pid": 19726,
+                "pssKb": 119850,
+                "rssKb": 178372
+              }
+            ],
+            "totalPssKb": 355316,
+            "totalRssKb": 710652
+          },
+          "metrics": {
+            "appReadyMs": 189,
+            "bridgeReadyFromSpawnMs": 305,
+            "coldStartFcpMs": 296.39990234375,
+            "coldStartFirstFrameMs": 303.39990234375,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 1.7999999998137355,
+              "meanMs": 1.04,
+              "minMs": 0.7999999998137355,
+              "p50Ms": 0.8999999999068677,
+              "p95Ms": 1.5800000000745056
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 1.5,
+              "meanMs": 0.09050000000046567,
+              "minMs": 0,
+              "p50Ms": 0.10000000009313226,
+              "p95Ms": 0.20000000018626451
+            },
+            "memoryPssMb": 346.98828125,
+            "memoryProcessCount": 7,
+            "memoryRssMb": 693.99609375,
+            "scroll": {
+              "count": 121,
+              "maxMs": 16.800000000000182,
+              "meanMs": 16.665338842975206,
+              "minMs": 16.59999999999991,
+              "p50Ms": 16.699999999999818,
+              "p95Ms": 16.799999999999955,
+              "droppedFramePct": 0
+            },
+            "windowOpenFcpMs": 58.800048828125,
+            "windowOpenFirstFrameMs": 44.300048828125
+          },
+          "runId": "electron-browserwindow-5",
+          "shellEvents": {
+            "main-start-late": 1786952943243,
+            "main-start": 1786952943241,
+            "app-ready": 1786952943312,
+            "window-created": 1786952943355,
+            "open-window-requested": 1786952947117,
+            "second-window-created": 1786952947128
+          },
+          "spawnEpochMs": 1786952943123
+        }
+      ],
+      "label": "Electron 41.7.0 BrowserWindow"
+    },
+    "electron-webcontentsview": {
+      "aggregate": {
+        "appReadyMs": 185,
+        "bridgeReadyFromSpawnMs": 291,
+        "coldStartFcpMs": 299.60009765625,
+        "coldStartFirstFrameMs": 289.099853515625,
+        "ipcLargeP50Ms": 1,
+        "ipcLargeP95Ms": 1.6399999997578552,
+        "ipcSmallP50Ms": 0.10000000009313226,
+        "ipcSmallP95Ms": 0.20000000018626451,
+        "memoryProcessCount": 7,
+        "memoryPssMb": 345.6064453125,
+        "memoryRssMb": 692.703125,
+        "scrollDroppedFramePct": 0,
+        "scrollMeanFrameMs": 16.6661652892562,
+        "scrollP95FrameMs": 16.799999999999955,
+        "windowOpenFcpMs": 71.5,
+        "windowOpenFirstFrameMs": 46.10009765625
+      },
+      "iterations": [
+        {
+          "iteration": 1,
+          "memory": {
+            "processCount": 7,
+            "processes": [
+              {
+                "comm": "electron",
+                "pid": 19761,
+                "pssKb": 91228,
+                "rssKb": 166976
+              },
+              {
+                "comm": "electron",
+                "pid": 19764,
+                "pssKb": 13875,
+                "rssKb": 56288
+              },
+              {
+                "comm": "electron",
+                "pid": 19765,
+                "pssKb": 12075,
+                "rssKb": 55400
+              },
+              {
+                "comm": "electron",
+                "pid": 19806,
+                "pssKb": 31414,
+                "rssKb": 83704
+              },
+              {
+                "comm": "electron",
+                "pid": 19788,
+                "pssKb": 81226,
+                "rssKb": 155216
+              },
+              {
+                "comm": "electron",
+                "pid": 19767,
+                "pssKb": 4134,
+                "rssKb": 13812
+              },
+              {
+                "comm": "electron",
+                "pid": 19813,
+                "pssKb": 118839,
+                "rssKb": 176180
+              }
+            ],
+            "totalPssKb": 352791,
+            "totalRssKb": 707576
+          },
+          "metrics": {
+            "appReadyMs": 185,
+            "bridgeReadyFromSpawnMs": 286,
+            "coldStartFcpMs": 294.199951171875,
+            "coldStartFirstFrameMs": 285.89990234375,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 1.7000000001862645,
+              "meanMs": 1.048000000026077,
+              "minMs": 0.7999999998137355,
+              "p50Ms": 1,
+              "p95Ms": 1.6399999998509875
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 0.39999999990686774,
+              "meanMs": 0.08500000000232831,
+              "minMs": 0,
+              "p50Ms": 0.10000000009313226,
+              "p95Ms": 0.20000000018626451
+            },
+            "memoryPssMb": 344.5224609375,
+            "memoryProcessCount": 7,
+            "memoryRssMb": 690.9921875,
+            "scroll": {
+              "count": 121,
+              "maxMs": 116.60000000000001,
+              "meanMs": 17.492561983471077,
+              "minMs": 16.59999999999991,
+              "p50Ms": 16.699999999999932,
+              "p95Ms": 16.799999999999955,
+              "droppedFramePct": 0.8264462809917356
+            },
+            "windowOpenFcpMs": 71.800048828125,
+            "windowOpenFirstFrameMs": 45.800048828125
+          },
+          "runId": "electron-webcontentsview-1",
+          "shellEvents": {
+            "main-start-late": 1786952947340,
+            "main-start": 1786952947339,
+            "app-ready": 1786952947409,
+            "window-created": 1786952947453,
+            "open-window-requested": 1786952951198,
+            "second-window-created": 1786952951211
+          },
+          "spawnEpochMs": 1786952947224
+        },
+        {
+          "iteration": 2,
+          "memory": {
+            "processCount": 7,
+            "processes": [
+              {
+                "comm": "electron",
+                "pid": 19850,
+                "pssKb": 90950,
+                "rssKb": 167288
+              },
+              {
+                "comm": "electron",
+                "pid": 19853,
+                "pssKb": 13746,
+                "rssKb": 55568
+              },
+              {
+                "comm": "electron",
+                "pid": 19854,
+                "pssKb": 12313,
+                "rssKb": 56084
+              },
+              {
+                "comm": "electron",
+                "pid": 19887,
+                "pssKb": 31336,
+                "rssKb": 83980
+              },
+              {
+                "comm": "electron",
+                "pid": 19878,
+                "pssKb": 83285,
+                "rssKb": 159904
+              },
+              {
+                "comm": "electron",
+                "pid": 19856,
+                "pssKb": 4127,
+                "rssKb": 13696
+              },
+              {
+                "comm": "electron",
+                "pid": 19911,
+                "pssKb": 122143,
+                "rssKb": 181780
+              }
+            ],
+            "totalPssKb": 357900,
+            "totalRssKb": 718300
+          },
+          "metrics": {
+            "appReadyMs": 187,
+            "bridgeReadyFromSpawnMs": 282,
+            "coldStartFcpMs": 299.60009765625,
+            "coldStartFirstFrameMs": 274.5,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 1.7000000001862645,
+              "meanMs": 1.04,
+              "minMs": 0.7999999998137355,
+              "p50Ms": 1,
+              "p95Ms": 1.6399999997578552
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 0.5,
+              "meanMs": 0.08750000000232831,
+              "minMs": 0,
+              "p50Ms": 0.10000000009313226,
+              "p95Ms": 0.20000000018626451
+            },
+            "memoryPssMb": 349.51171875,
+            "memoryProcessCount": 7,
+            "memoryRssMb": 701.46484375,
+            "scroll": {
+              "count": 122,
+              "maxMs": 16.800000000000068,
+              "meanMs": 16.52955737704918,
+              "minMs": 0.10599999999999454,
+              "p50Ms": 16.699999999999818,
+              "p95Ms": 16.700000000000045,
+              "droppedFramePct": 0
+            },
+            "windowOpenFcpMs": 69.199951171875,
+            "windowOpenFirstFrameMs": 43.39990234375
+          },
+          "runId": "electron-webcontentsview-2",
+          "shellEvents": {
+            "main-start-late": 1786952951435,
+            "main-start": 1786952951434,
+            "app-ready": 1786952951505,
+            "window-created": 1786952951548,
+            "open-window-requested": 1786952955300,
+            "second-window-created": 1786952955311
+          },
+          "spawnEpochMs": 1786952951318
+        },
+        {
+          "iteration": 3,
+          "memory": {
+            "processCount": 7,
+            "processes": [
+              {
+                "comm": "electron",
+                "pid": 19940,
+                "pssKb": 91952,
+                "rssKb": 167560
+              },
+              {
+                "comm": "electron",
+                "pid": 19943,
+                "pssKb": 13723,
+                "rssKb": 55296
+              },
+              {
+                "comm": "electron",
+                "pid": 19944,
+                "pssKb": 12213,
+                "rssKb": 56008
+              },
+              {
+                "comm": "electron",
+                "pid": 19979,
+                "pssKb": 31689,
+                "rssKb": 83836
+              },
+              {
+                "comm": "electron",
+                "pid": 19968,
+                "pssKb": 81613,
+                "rssKb": 155412
+              },
+              {
+                "comm": "electron",
+                "pid": 19946,
+                "pssKb": 4116,
+                "rssKb": 13596
+              },
+              {
+                "comm": "electron",
+                "pid": 20000,
+                "pssKb": 119648,
+                "rssKb": 177620
+              }
+            ],
+            "totalPssKb": 354954,
+            "totalRssKb": 709328
+          },
+          "metrics": {
+            "appReadyMs": 185,
+            "bridgeReadyFromSpawnMs": 291,
+            "coldStartFcpMs": 299.800048828125,
+            "coldStartFirstFrameMs": 289.800048828125,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 1.5,
+              "meanMs": 1.02,
+              "minMs": 0.7000000001862645,
+              "p50Ms": 1,
+              "p95Ms": 1.3999999999068677
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 0.3000000002793968,
+              "meanMs": 0.08849999999860302,
+              "minMs": 0,
+              "p50Ms": 0.10000000009313226,
+              "p95Ms": 0.20000000018626451
+            },
+            "memoryPssMb": 346.634765625,
+            "memoryProcessCount": 7,
+            "memoryRssMb": 692.703125,
+            "scroll": {
+              "count": 121,
+              "maxMs": 16.800000000000182,
+              "meanMs": 16.6661652892562,
+              "minMs": 16.5,
+              "p50Ms": 16.69999999999999,
+              "p95Ms": 16.799999999999955,
+              "droppedFramePct": 0
+            },
+            "windowOpenFcpMs": 67.699951171875,
+            "windowOpenFirstFrameMs": 60.699951171875
+          },
+          "runId": "electron-webcontentsview-3",
+          "shellEvents": {
+            "main-start-late": 1786952955520,
+            "main-start": 1786952955519,
+            "app-ready": 1786952955588,
+            "window-created": 1786952955629,
+            "open-window-requested": 1786952959383,
+            "second-window-created": 1786952959395
+          },
+          "spawnEpochMs": 1786952955403
+        },
+        {
+          "iteration": 4,
+          "memory": {
+            "processCount": 7,
+            "processes": [
+              {
+                "comm": "electron",
+                "pid": 20031,
+                "pssKb": 91561,
+                "rssKb": 168208
+              },
+              {
+                "comm": "electron",
+                "pid": 20034,
+                "pssKb": 13692,
+                "rssKb": 55840
+              },
+              {
+                "comm": "electron",
+                "pid": 20035,
+                "pssKb": 12208,
+                "rssKb": 56364
+              },
+              {
+                "comm": "electron",
+                "pid": 20072,
+                "pssKb": 31247,
+                "rssKb": 83956
+              },
+              {
+                "comm": "electron",
+                "pid": 20059,
+                "pssKb": 81067,
+                "rssKb": 155572
+              },
+              {
+                "comm": "electron",
+                "pid": 20037,
+                "pssKb": 4111,
+                "rssKb": 13748
+              },
+              {
+                "comm": "electron",
+                "pid": 20083,
+                "pssKb": 120015,
+                "rssKb": 178564
+              }
+            ],
+            "totalPssKb": 353901,
+            "totalRssKb": 712252
+          },
+          "metrics": {
+            "appReadyMs": 185,
+            "bridgeReadyFromSpawnMs": 295,
+            "coldStartFcpMs": 305.699951171875,
+            "coldStartFirstFrameMs": 294.89990234375,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 1.7000000001862645,
+              "meanMs": 1,
+              "minMs": 0.7999999998137355,
+              "p50Ms": 0.8999999999068677,
+              "p95Ms": 1.540000000037252
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 0.8999999999068677,
+              "meanMs": 0.09399999999906868,
+              "minMs": 0,
+              "p50Ms": 0.10000000009313226,
+              "p95Ms": 0.20000000018626451
+            },
+            "memoryPssMb": 345.6064453125,
+            "memoryProcessCount": 7,
+            "memoryRssMb": 695.55859375,
+            "scroll": {
+              "count": 121,
+              "maxMs": 16.800000000000068,
+              "meanMs": 16.665338842975206,
+              "minMs": 16.5,
+              "p50Ms": 16.699999999999932,
+              "p95Ms": 16.700000000000045,
+              "droppedFramePct": 0
+            },
+            "windowOpenFcpMs": 71.5,
+            "windowOpenFirstFrameMs": 46.10009765625
+          },
+          "runId": "electron-webcontentsview-4",
+          "shellEvents": {
+            "main-start-late": 1786952959614,
+            "main-start": 1786952959612,
+            "app-ready": 1786952959683,
+            "window-created": 1786952959726,
+            "open-window-requested": 1786952963481,
+            "second-window-created": 1786952963490
+          },
+          "spawnEpochMs": 1786952959498
+        },
+        {
+          "iteration": 5,
+          "memory": {
+            "processCount": 7,
+            "processes": [
+              {
+                "comm": "electron",
+                "pid": 20124,
+                "pssKb": 88966,
+                "rssKb": 165724
+              },
+              {
+                "comm": "electron",
+                "pid": 20127,
+                "pssKb": 14078,
+                "rssKb": 55812
+              },
+              {
+                "comm": "electron",
+                "pid": 20128,
+                "pssKb": 12166,
+                "rssKb": 56096
+              },
+              {
+                "comm": "electron",
+                "pid": 20165,
+                "pssKb": 32204,
+                "rssKb": 83748
+              },
+              {
+                "comm": "electron",
+                "pid": 20152,
+                "pssKb": 80991,
+                "rssKb": 154244
+              },
+              {
+                "comm": "electron",
+                "pid": 20130,
+                "pssKb": 4114,
+                "rssKb": 13692
+              },
+              {
+                "comm": "electron",
+                "pid": 20167,
+                "pssKb": 119190,
+                "rssKb": 178496
+              }
+            ],
+            "totalPssKb": 351709,
+            "totalRssKb": 707812
+          },
+          "metrics": {
+            "appReadyMs": 187,
+            "bridgeReadyFromSpawnMs": 293,
+            "coldStartFcpMs": 293.199951171875,
+            "coldStartFirstFrameMs": 289.099853515625,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 1.900000000372529,
+              "meanMs": 1.0879999999701977,
+              "minMs": 0.7999999998137355,
+              "p50Ms": 1,
+              "p95Ms": 1.8799999999813732
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 0.39999999990686774,
+              "meanMs": 0.10600000000093132,
+              "minMs": 0,
+              "p50Ms": 0.10000000009313226,
+              "p95Ms": 0.20000000018626451
+            },
+            "memoryPssMb": 343.4658203125,
+            "memoryProcessCount": 7,
+            "memoryRssMb": 691.22265625,
+            "scroll": {
+              "count": 121,
+              "maxMs": 16.800000000000182,
+              "meanMs": 16.6661652892562,
+              "minMs": 16.499999999999943,
+              "p50Ms": 16.69999999999999,
+              "p95Ms": 16.80000000000001,
+              "droppedFramePct": 0
+            },
+            "windowOpenFcpMs": 71.699951171875,
+            "windowOpenFirstFrameMs": 48
+          },
+          "runId": "electron-webcontentsview-5",
+          "shellEvents": {
+            "main-start-late": 1786952963720,
+            "main-start": 1786952963719,
+            "app-ready": 1786952963790,
+            "window-created": 1786952963831,
+            "open-window-requested": 1786952967579,
+            "second-window-created": 1786952967591
+          },
+          "spawnEpochMs": 1786952963603
+        }
+      ],
+      "label": "Electron 41.7.0 BaseWindow+WebContentsView"
+    },
+    "tauri": {
+      "aggregate": {
+        "appReadyMs": 70,
+        "bridgeReadyFromSpawnMs": 930,
+        "coldStartFcpMs": 770,
+        "coldStartFirstFrameMs": 931,
+        "ipcLargeP50Ms": 2,
+        "ipcLargeP95Ms": 2.800000000000003,
+        "ipcSmallP50Ms": 0,
+        "ipcSmallP95Ms": 1,
+        "memoryProcessCount": 3,
+        "memoryPssMb": 396.6240234375,
+        "memoryRssMb": 590.9921875,
+        "scrollDroppedFramePct": 0.9090909090909091,
+        "scrollMeanFrameMs": 18.245454545454546,
+        "scrollP95FrameMs": 18,
+        "windowOpenFcpMs": 611,
+        "windowOpenFirstFrameMs": 645
+      },
+      "iterations": [
+        {
+          "iteration": 1,
+          "memory": {
+            "processCount": 3,
+            "processes": [
+              {
+                "comm": "spike-tauri-she",
+                "pid": 20212,
+                "pssKb": 101651,
+                "rssKb": 189300
+              },
+              {
+                "comm": "WebKitNetworkPr",
+                "pid": 20227,
+                "pssKb": 23451,
+                "rssKb": 55704
+              },
+              {
+                "comm": "WebKitWebProces",
+                "pid": 20256,
+                "pssKb": 276611,
+                "rssKb": 355612
+              }
+            ],
+            "totalPssKb": 401713,
+            "totalRssKb": 600616
+          },
+          "metrics": {
+            "appReadyMs": 70,
+            "bridgeReadyFromSpawnMs": 931,
+            "coldStartFcpMs": 774,
+            "coldStartFirstFrameMs": 931,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 3,
+              "meanMs": 2.08,
+              "minMs": 1.9999999999999716,
+              "p50Ms": 2,
+              "p95Ms": 2.800000000000003
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 1.0000000000000284,
+              "meanMs": 0.175,
+              "minMs": 0,
+              "p50Ms": 0,
+              "p95Ms": 1
+            },
+            "memoryPssMb": 392.2978515625,
+            "memoryProcessCount": 3,
+            "memoryRssMb": 586.5390625,
+            "scroll": {
+              "count": 110,
+              "maxMs": 197,
+              "meanMs": 18.254545454545454,
+              "minMs": 8,
+              "p50Ms": 17,
+              "p95Ms": 18,
+              "droppedFramePct": 0.9090909090909091
+            },
+            "windowOpenFcpMs": 611,
+            "windowOpenFirstFrameMs": 645
+          },
+          "runId": "tauri-1",
+          "shellEvents": {
+            "main-start": 1786952967707,
+            "app-ready": 1786952967757,
+            "window-created": 1786952967869,
+            "open-window-requested": 1786952972346,
+            "second-window-created": 1786952972363
+          },
+          "spawnEpochMs": 1786952967687
+        },
+        {
+          "iteration": 2,
+          "memory": {
+            "processCount": 3,
+            "processes": [
+              {
+                "comm": "spike-tauri-she",
+                "pid": 20337,
+                "pssKb": 101777,
+                "rssKb": 189620
+              },
+              {
+                "comm": "WebKitNetworkPr",
+                "pid": 20350,
+                "pssKb": 23263,
+                "rssKb": 55632
+              },
+              {
+                "comm": "WebKitWebProces",
+                "pid": 20377,
+                "pssKb": 280767,
+                "rssKb": 359852
+              }
+            ],
+            "totalPssKb": 405807,
+            "totalRssKb": 605104
+          },
+          "metrics": {
+            "appReadyMs": 69,
+            "bridgeReadyFromSpawnMs": 921,
+            "coldStartFcpMs": 765,
+            "coldStartFirstFrameMs": 921,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 3,
+              "meanMs": 2.04,
+              "minMs": 1.9999999999999716,
+              "p50Ms": 2,
+              "p95Ms": 2.0000000000000226
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 1.0000000000000284,
+              "meanMs": 0.15,
+              "minMs": 0,
+              "p50Ms": 0,
+              "p95Ms": 1
+            },
+            "memoryPssMb": 396.2958984375,
+            "memoryProcessCount": 3,
+            "memoryRssMb": 590.921875,
+            "scroll": {
+              "count": 110,
+              "maxMs": 198,
+              "meanMs": 18.19090909090909,
+              "minMs": 13,
+              "p50Ms": 16,
+              "p95Ms": 18,
+              "droppedFramePct": 0.9090909090909091
+            },
+            "windowOpenFcpMs": 613,
+            "windowOpenFirstFrameMs": 646
+          },
+          "runId": "tauri-2",
+          "shellEvents": {
+            "main-start": 1786952973029,
+            "app-ready": 1786952973079,
+            "window-created": 1786952973187,
+            "open-window-requested": 1786952977646,
+            "second-window-created": 1786952977661
+          },
+          "spawnEpochMs": 1786952973010
+        },
+        {
+          "iteration": 3,
+          "memory": {
+            "processCount": 3,
+            "processes": [
+              {
+                "comm": "spike-tauri-she",
+                "pid": 20495,
+                "pssKb": 101425,
+                "rssKb": 189164
+              },
+              {
+                "comm": "WebKitNetworkPr",
+                "pid": 20508,
+                "pssKb": 23478,
+                "rssKb": 55768
+              },
+              {
+                "comm": "WebKitWebProces",
+                "pid": 20535,
+                "pssKb": 281240,
+                "rssKb": 360244
+              }
+            ],
+            "totalPssKb": 406143,
+            "totalRssKb": 605176
+          },
+          "metrics": {
+            "appReadyMs": 70,
+            "bridgeReadyFromSpawnMs": 930,
+            "coldStartFcpMs": 770,
+            "coldStartFirstFrameMs": 931,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 3,
+              "meanMs": 2.0800000000000023,
+              "minMs": 1.9999999999999716,
+              "p50Ms": 2,
+              "p95Ms": 2.8000000000000087
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 1.0000000000000284,
+              "meanMs": 0.17,
+              "minMs": 0,
+              "p50Ms": 0,
+              "p95Ms": 1
+            },
+            "memoryPssMb": 396.6240234375,
+            "memoryProcessCount": 3,
+            "memoryRssMb": 590.9921875,
+            "scroll": {
+              "count": 110,
+              "maxMs": 198,
+              "meanMs": 18.245454545454546,
+              "minMs": 8,
+              "p50Ms": 17,
+              "p95Ms": 18,
+              "droppedFramePct": 0.9090909090909091
+            },
+            "windowOpenFcpMs": 608,
+            "windowOpenFirstFrameMs": 641
+          },
+          "runId": "tauri-3",
+          "shellEvents": {
+            "main-start": 1786952978331,
+            "app-ready": 1786952978382,
+            "window-created": 1786952978492,
+            "open-window-requested": 1786952982970,
+            "second-window-created": 1786952982984
+          },
+          "spawnEpochMs": 1786952978312
+        },
+        {
+          "iteration": 4,
+          "memory": {
+            "processCount": 3,
+            "processes": [
+              {
+                "comm": "spike-tauri-she",
+                "pid": 20618,
+                "pssKb": 102433,
+                "rssKb": 189348
+              },
+              {
+                "comm": "WebKitNetworkPr",
+                "pid": 20631,
+                "pssKb": 23436,
+                "rssKb": 55780
+              },
+              {
+                "comm": "WebKitWebProces",
+                "pid": 20658,
+                "pssKb": 281091,
+                "rssKb": 360980
+              }
+            ],
+            "totalPssKb": 406960,
+            "totalRssKb": 606108
+          },
+          "metrics": {
+            "appReadyMs": 69,
+            "bridgeReadyFromSpawnMs": 924,
+            "coldStartFcpMs": 765,
+            "coldStartFirstFrameMs": 924,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 3,
+              "meanMs": 2.0800000000000023,
+              "minMs": 2,
+              "p50Ms": 2,
+              "p95Ms": 2.7999999999999856
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 3,
+              "meanMs": 0.18,
+              "minMs": 0,
+              "p50Ms": 0,
+              "p95Ms": 1
+            },
+            "memoryPssMb": 397.421875,
+            "memoryProcessCount": 3,
+            "memoryRssMb": 591.90234375,
+            "scroll": {
+              "count": 110,
+              "maxMs": 199,
+              "meanMs": 18.272727272727273,
+              "minMs": 10,
+              "p50Ms": 17,
+              "p95Ms": 18,
+              "droppedFramePct": 0.9090909090909091
+            },
+            "windowOpenFcpMs": 615,
+            "windowOpenFirstFrameMs": 649
+          },
+          "runId": "tauri-4",
+          "shellEvents": {
+            "main-start": 1786952983653,
+            "app-ready": 1786952983703,
+            "window-created": 1786952983812,
+            "open-window-requested": 1786952988288,
+            "second-window-created": 1786952988304
+          },
+          "spawnEpochMs": 1786952983634
+        },
+        {
+          "iteration": 5,
+          "memory": {
+            "processCount": 3,
+            "processes": [
+              {
+                "comm": "spike-tauri-she",
+                "pid": 20741,
+                "pssKb": 101511,
+                "rssKb": 189272
+              },
+              {
+                "comm": "WebKitNetworkPr",
+                "pid": 20754,
+                "pssKb": 23501,
+                "rssKb": 56100
+              },
+              {
+                "comm": "WebKitWebProces",
+                "pid": 20781,
+                "pssKb": 281400,
+                "rssKb": 360664
+              }
+            ],
+            "totalPssKb": 406412,
+            "totalRssKb": 606036
+          },
+          "metrics": {
+            "appReadyMs": 70,
+            "bridgeReadyFromSpawnMs": 979,
+            "coldStartFcpMs": 789,
+            "coldStartFirstFrameMs": 978,
+            "ipcLarge": {
+              "count": 25,
+              "maxMs": 3,
+              "meanMs": 2.12,
+              "minMs": 1.9999999999999432,
+              "p50Ms": 2,
+              "p95Ms": 3
+            },
+            "ipcSmall": {
+              "count": 200,
+              "maxMs": 1.0000000000000284,
+              "meanMs": 0.205,
+              "minMs": 0,
+              "p50Ms": 0,
+              "p95Ms": 1
+            },
+            "memoryPssMb": 396.88671875,
+            "memoryProcessCount": 3,
+            "memoryRssMb": 591.83203125,
+            "scroll": {
+              "count": 111,
+              "maxMs": 197,
+              "meanMs": 18.144144144144143,
+              "minMs": 10,
+              "p50Ms": 17,
+              "p95Ms": 18,
+              "droppedFramePct": 0.9009009009009009
+            },
+            "windowOpenFcpMs": 608,
+            "windowOpenFirstFrameMs": 641
+          },
+          "runId": "tauri-5",
+          "shellEvents": {
+            "main-start": 1786952988976,
+            "app-ready": 1786952989025,
+            "window-created": 1786952989147,
+            "open-window-requested": 1786952993676,
+            "second-window-created": 1786952993690
+          },
+          "spawnEpochMs": 1786952988955
+        }
+      ],
+      "label": "Tauri 2 (WebKitGTK)"
+    }
+  }
+}

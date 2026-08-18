@@ -181,6 +181,14 @@ import {
   type RuntimeOwnership,
   type WindowStateKey,
 } from "./types.js";
+import { createPerfHarness } from "./perf-harness.js";
+
+// No-op unless BB_DESKTOP_PERF_HARNESS=1; see perf-harness.ts.
+const perfHarness = createPerfHarness({
+  env: process.env,
+  streams: { stdin: process.stdin, stdout: process.stdout },
+});
+perfHarness.mark("main-start");
 
 const OWNED_RUNTIME_STOP_TIMEOUT_MS = 6_000;
 const OWNED_RUNTIME_KILL_TIMEOUT_MS = 1_000;
@@ -2040,6 +2048,7 @@ async function runDesktopApp(): Promise<void> {
   });
 
   await app.whenReady();
+  perfHarness.mark("app-ready");
   await clearPackagedSessionHttpCache({
     isPackaged: app.isPackaged,
     session: session.defaultSession,
@@ -2268,6 +2277,28 @@ async function runDesktopApp(): Promise<void> {
     userDataPath,
   });
   installLogViewerIpcHandlers();
+
+  if (perfHarness.enabled) {
+    perfHarness.onCommand((command) => {
+      if (command !== "open-window") {
+        return;
+      }
+      perfHarness.mark("open-window-requested");
+      void createApplicationWindow({
+        initialUrl: currentWindowUrl,
+        stateKey: null,
+      }).then((browserWindow) => {
+        if (browserWindow === null) {
+          return;
+        }
+        // createWindow awaits the initial loadURL, so by the time the promise
+        // resolves the navigation has settled; the harness reads first-frame
+        // timing from the page itself, so a separate "loaded" mark would be
+        // redundant (and did-finish-load has already fired at this point).
+        perfHarness.mark("open-window-created");
+      });
+    });
+  }
 
   refreshApplicationMenu();
   await loadLoadingView();
