@@ -418,7 +418,11 @@ describe("http", () => {
         clone: () => real.clone(),
       } as unknown as Response;
     });
-    bb.http.route("GET", "/not-a-response", () => ({ status: 200 }) as Response);
+    bb.http.route(
+      "GET",
+      "/not-a-response",
+      () => ({ status: 200 }) as Response,
+    );
 
     const foreign = await harness.fetchHttp("GET", "/foreign");
     expect(foreign.status).toBe(201);
@@ -431,6 +435,71 @@ describe("http", () => {
       ok: false,
       error: "plugin route failed: http route handler must return a Response",
     });
+  });
+
+  it("validates and records experimental_cors like the host", () => {
+    const { bb, harness } = createFakePluginHost();
+    const respond = () => Response.json({ ok: true });
+
+    bb.http.route("POST", "/build", respond, {
+      auth: "token",
+      experimental_cors: { origins: ["https://diffui.example"] },
+    });
+    expect(harness.registrations.httpRoutes).toContainEqual(
+      expect.objectContaining({
+        method: "POST",
+        path: "/build",
+        auth: "token",
+        corsOrigins: ["https://diffui.example"],
+      }),
+    );
+    // Undeclared routes normalize to an empty allowlist.
+    bb.http.route("GET", "/plain", respond);
+    expect(
+      harness.registrations.httpRoutes.find((route) => route.path === "/plain")
+        ?.corsOrigins,
+    ).toEqual([]);
+
+    // "local" routes are origin-gated by definition — no cors declarations.
+    expect(() =>
+      bb.http.route("GET", "/local-cors", respond, {
+        experimental_cors: { origins: ["https://diffui.example"] },
+      }),
+    ).toThrow('requires auth "token" or "none"');
+
+    // Origins must be exact serialized http(s) origins. Each rejection
+    // happens before the route is recorded, so the path can repeat.
+    for (const origin of [
+      "https://diffui.example/path",
+      "https://diffui.example/",
+      "*",
+      "null",
+      "ftp://diffui.example",
+      "diffui.example",
+    ]) {
+      expect(() =>
+        bb.http.route("POST", "/bad", respond, {
+          auth: "none",
+          experimental_cors: { origins: [origin] },
+        }),
+      ).toThrow("invalid cors origin");
+    }
+
+    expect(() =>
+      bb.http.route("POST", "/empty", respond, {
+        auth: "none",
+        experimental_cors: { origins: [] },
+      }),
+    ).toThrow("non-empty array");
+
+    expect(() =>
+      bb.http.route("POST", "/dupes", respond, {
+        auth: "none",
+        experimental_cors: {
+          origins: ["https://diffui.example", "https://diffui.example"],
+        },
+      }),
+    ).toThrow("duplicate cors origin");
   });
 });
 
@@ -823,10 +892,10 @@ describe("agent tools", () => {
       thread: { ...configurationContext.thread, id: "thread-beta" },
       host: { id: "host-beta", name: "Beta host" },
       provider: {
-      id: "claude-code",
-      model: "claude-opus",
-      capabilities: { supportsNativeUserQuestion: false },
-    },
+        id: "claude-code",
+        model: "claude-opus",
+        capabilities: { supportsNativeUserQuestion: false },
+      },
     };
     const beta = await harness.resolveAgentConfiguration(betaContext);
 
@@ -1000,9 +1069,7 @@ describe("agents.experimental_registerProvider", () => {
       },
       composerActions: ["plan"],
       ...overrides,
-    } as Parameters<
-      BbPluginApi["agents"]["experimental_registerProvider"]
-    >[0];
+    } as Parameters<BbPluginApi["agents"]["experimental_registerProvider"]>[0];
   }
 
   it("rejects malformed declarations with the shared host policy", () => {
@@ -1050,9 +1117,9 @@ describe("agents.experimental_registerProvider", () => {
     ).toThrow(/icon must not escape the plugin directory/);
     // The `bb.branding.icon` grammar: "./" means a plugin file, anything else
     // is a host glyph name. A path without the prefix is neither.
-    expect(() =>
-      register(agentDeclaration({ icon: "/abs/icon.svg" })),
-    ).toThrow(/icon looks like a path but does not start with "\.\/"/);
+    expect(() => register(agentDeclaration({ icon: "/abs/icon.svg" }))).toThrow(
+      /icon looks like a path but does not start with "\.\/"/,
+    );
     expect(() =>
       register(agentDeclaration({ composerActions: ["plan", "plan"] })),
     ).toThrow(/composerActions entry "plan" is duplicated/);
