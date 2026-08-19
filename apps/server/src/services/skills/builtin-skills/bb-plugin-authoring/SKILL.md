@@ -765,8 +765,9 @@ cannot delay or interrupt the thread's turn.
 
 ### bb.http — HTTP routes
 
-`bb.http.route(method, path, handler, { auth? })` mounts an exact-match
-route (no params/wildcards) at `/api/v1/plugins/<id>/http/<path>`. The
+`bb.http.route(method, path, handler, { auth?, experimental_cors? })` mounts
+an exact-match route (no params/wildcards) at
+`/api/v1/plugins/<id>/http/<path>`. The
 handler is a Hono handler: `(context) => Response | Promise<Response>`.
 Auth modes:
 
@@ -778,6 +779,21 @@ Auth modes:
   and machines you control.
 - `"none"` — no checks. ONLY for webhooks that verify their own signature
   (e.g. Slack's `x-slack-signature` HMAC) inside the handler.
+
+`experimental_cors: { origins: ["https://app.example"] }` (token/none routes
+only; see docs/api_to_audit.md) declares external web origins whose browser
+pages may call this route. Token/none routes are always REACHABLE cross-origin
+(their auth is not an origin check), but without a declaration a browser page
+on a foreign origin cannot complete the exchange: the server answers CORS
+preflights only for local bb app origins, so a preflighted request (JSON
+content-type, the `x-bb-plugin-token` header) is blocked and even a simple
+request's response stays unreadable. For declared origins the host answers the
+preflight and stamps `Access-Control-Allow-Origin` on this route's responses —
+including a 401, so the external app can render a "reconnect to bb" state.
+Origins are exact serialized http(s) origins (at most 16): no wildcards, no
+`"null"`, no paths, no trailing slash. Cookies are never allowed cross-origin;
+authenticate with the plugin token. Preflights are host-owned — a registered
+OPTIONS handler is never invoked for a CORS preflight.
 
 ### bb.rpc — the frontend data plane
 

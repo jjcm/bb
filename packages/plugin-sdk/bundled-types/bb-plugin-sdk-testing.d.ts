@@ -70,8 +70,9 @@ declare function createFakeSdk(options: {
  *   the host's shared file), secret settings alongside plain values (no files).
  * - `bb.sdk` is always bound (no listen gate) and every unstubbed method
  *   throws instead of hitting a server.
- * - http auth modes are recorded but not enforced — signature checks and
- *   token handling inside handlers still run.
+ * - http auth modes and cors origin declarations are validated and recorded
+ *   but not enforced — signature checks and token handling inside handlers
+ *   still run, and no CORS middleware is simulated.
  * - background services/schedules never run on timers; `harness.runService`
  *   and `harness.runSchedule` invoke them deterministically.
  */
@@ -88,6 +89,8 @@ interface FakeHttpRouteRecord {
     method: string;
     path: string;
     auth: PluginHttpAuthMode;
+    /** Normalized `experimental_cors.origins` ([] when the route declared none). */
+    corsOrigins: readonly string[];
     handler: PluginHttpHandler;
 }
 interface FakeScheduleRecord {

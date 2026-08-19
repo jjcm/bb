@@ -53,6 +53,81 @@ export const PLUGIN_HTTP_METHODS: ReadonlySet<string> = new Set([
   "OPTIONS",
 ]);
 
+/** Declared cross-origin callers per route stay a short allowlist, not a CDN config. */
+export const PLUGIN_HTTP_CORS_MAX_ORIGINS = 16;
+
+/** True when `value` is an exact, serialized http(s) web origin. */
+function isExactWebOrigin(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return (
+    (url.protocol === "http:" || url.protocol === "https:") &&
+    url.origin === value
+  );
+}
+
+/**
+ * Validate a route's `experimental_cors` option and return its normalized
+ * origin allowlist ([] when the option is absent). Shared by the real host
+ * and the testing fake so registration accepts and rejects identically.
+ *
+ * Only "token" and "none" routes may declare cross-origin callers: a "local"
+ * route's auth IS the origin check, so exposing it cross-origin would negate
+ * it. Origins are exact serialized http(s) origins — no wildcards, no "null",
+ * no paths — because the allowlist is compared against the browser's `Origin`
+ * header verbatim.
+ */
+export function normalizePluginHttpRouteCorsOrigins(args: {
+  method: string;
+  path: string;
+  auth: "local" | "token" | "none";
+  cors: unknown;
+}): readonly string[] {
+  const { method, path, auth, cors } = args;
+  if (cors === undefined) return [];
+  const route = `${method} ${path}`;
+  if (typeof cors !== "object" || cors === null || Array.isArray(cors)) {
+    throw new Error(
+      `experimental_cors for ${route} must be an object like { origins: ["https://app.example"] }`,
+    );
+  }
+  if (auth === "local") {
+    throw new Error(
+      `experimental_cors for ${route} requires auth "token" or "none" — ` +
+        `"local" routes are origin-gated by definition`,
+    );
+  }
+  const origins = (cors as { origins?: unknown }).origins;
+  if (!Array.isArray(origins) || origins.length === 0) {
+    throw new Error(
+      `experimental_cors.origins for ${route} must be a non-empty array of origins`,
+    );
+  }
+  if (origins.length > PLUGIN_HTTP_CORS_MAX_ORIGINS) {
+    throw new Error(
+      `experimental_cors.origins for ${route} allows at most ${PLUGIN_HTTP_CORS_MAX_ORIGINS} origins`,
+    );
+  }
+  const normalized: string[] = [];
+  for (const origin of origins) {
+    if (typeof origin !== "string" || !isExactWebOrigin(origin)) {
+      throw new Error(
+        `invalid cors origin ${JSON.stringify(origin)} for ${route} — use an exact ` +
+          `http(s) origin such as "https://app.example" (no wildcards, paths, or trailing "/")`,
+      );
+    }
+    if (normalized.includes(origin)) {
+      throw new Error(`duplicate cors origin "${origin}" for ${route}`);
+    }
+    normalized.push(origin);
+  }
+  return normalized;
+}
+
 // Rpc method names become URL path segments.
 export const RPC_METHOD_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
@@ -374,7 +449,10 @@ export function validatePluginProviderDeclaration(
   }
   let icon: string | undefined;
   if (declaration.icon !== undefined) {
-    if (typeof declaration.icon !== "string" || declaration.icon.trim() === "") {
+    if (
+      typeof declaration.icon !== "string" ||
+      declaration.icon.trim() === ""
+    ) {
       throw new Error(
         `provider "${id}" icon must be a non-blank string — a named host glyph ("Zap") or a plugin-relative path ("./icons/agent.svg")`,
       );
@@ -412,7 +490,9 @@ export function validatePluginProviderDeclaration(
       );
     }
   }
-  if (!(PROVIDER_FORK_VALUES as readonly string[]).includes(capabilities.fork)) {
+  if (
+    !(PROVIDER_FORK_VALUES as readonly string[]).includes(capabilities.fork)
+  ) {
     throw new Error(
       `provider "${id}" capabilities.fork must be one of ${PROVIDER_FORK_VALUES.join(", ")}`,
     );

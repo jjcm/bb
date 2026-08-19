@@ -62,6 +62,7 @@ import {
   KV_VALUE_MAX_BYTES,
   MENTION_PROVIDER_ID_PATTERN,
   normalizeMentionProviderTriggers,
+  normalizePluginHttpRouteCorsOrigins,
   PLUGIN_AGENT_STATIC_INSTRUCTIONS_MAX_CHARS,
   PLUGIN_AGENT_STATUS_LABEL_MAX_CHARS,
   PLUGIN_HTTP_METHODS,
@@ -106,6 +107,7 @@ export type {
   PluginHttp,
   PluginHttpAuthMode,
   PluginHttpHandler,
+  PluginHttpRouteCorsOptions,
   PluginHosts,
   PluginKvStorage,
   PluginLogger,
@@ -185,6 +187,12 @@ export interface PluginHttpRouteRecord {
   /** Exact-match path starting with "/" (no params/wildcards in V1). */
   path: string;
   auth: PluginHttpAuthMode;
+  /**
+   * Exact web origins whose browser pages may call this route cross-origin
+   * (`experimental_cors.origins`, validated at registration); [] when the
+   * route declared none. Consulted by the server's CORS middleware.
+   */
+  corsOrigins: readonly string[];
   handler: PluginHttpHandler;
 }
 
@@ -686,6 +694,12 @@ export function createPluginApi(options: {
           `invalid auth mode "${String(auth)}" for ${normalizedMethod} ${path} — use "local", "token", or "none"`,
         );
       }
+      const corsOrigins = normalizePluginHttpRouteCorsOrigins({
+        method: normalizedMethod,
+        path,
+        auth,
+        cors: opts?.experimental_cors,
+      });
       if (
         httpRoutes.some(
           (route) => route.method === normalizedMethod && route.path === path,
@@ -695,7 +709,13 @@ export function createPluginApi(options: {
           `http route ${normalizedMethod} ${path} is already registered`,
         );
       }
-      httpRoutes.push({ method: normalizedMethod, path, auth, handler });
+      httpRoutes.push({
+        method: normalizedMethod,
+        path,
+        auth,
+        corsOrigins,
+        handler,
+      });
     },
   };
 

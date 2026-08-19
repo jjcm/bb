@@ -225,6 +225,25 @@ declare const RESERVED_AGENT_TOOL_NAMES: readonly string[];
 /** JSON values ≤256KB; larger writes are rejected with a clear error. */
 declare const KV_VALUE_MAX_BYTES: number;
 declare const PLUGIN_HTTP_METHODS: ReadonlySet<string>;
+/** Declared cross-origin callers per route stay a short allowlist, not a CDN config. */
+declare const PLUGIN_HTTP_CORS_MAX_ORIGINS = 16;
+/**
+ * Validate a route's `experimental_cors` option and return its normalized
+ * origin allowlist ([] when the option is absent). Shared by the real host
+ * and the testing fake so registration accepts and rejects identically.
+ *
+ * Only "token" and "none" routes may declare cross-origin callers: a "local"
+ * route's auth IS the origin check, so exposing it cross-origin would negate
+ * it. Origins are exact serialized http(s) origins — no wildcards, no "null",
+ * no paths — because the allowlist is compared against the browser's `Origin`
+ * header verbatim.
+ */
+declare function normalizePluginHttpRouteCorsOrigins(args: {
+    method: string;
+    path: string;
+    auth: "local" | "token" | "none";
+    cors: unknown;
+}): readonly string[];
 declare const RPC_METHOD_PATTERN: RegExp;
 declare const BACKGROUND_NAME_PATTERN: RegExp;
 declare const CLI_COMMAND_NAME_PATTERN: RegExp;
@@ -290,4 +309,4 @@ declare function enforcePluginCliOutputLimit(result: Omit<PluginCliExecutionResu
  */
 declare function adoptHttpRouteResponse(value: unknown): Response;
 
-export { AGENT_TOOL_NAME_PATTERN, BACKGROUND_NAME_PATTERN, CLI_COMMAND_NAME_PATTERN, KV_VALUE_MAX_BYTES, MENTION_PROVIDER_ID_PATTERN, PLUGIN_AGENT_DYNAMIC_INSTRUCTIONS_MAX_CHARS, PLUGIN_AGENT_SELECTION_MAX_IDS, PLUGIN_AGENT_STATIC_INSTRUCTIONS_MAX_CHARS, PLUGIN_AGENT_STATUS_LABEL_MAX_CHARS, PLUGIN_AGENT_TOOL_PARAMETERS_MAX_BYTES, PLUGIN_HTTP_METHODS, PLUGIN_MENTION_TRIGGER_VALUES, PLUGIN_PROVIDER_COMPOSER_ACTION_VALUES, PLUGIN_PROVIDER_DISPLAY_NAME_MAX_CHARS, PLUGIN_PROVIDER_PERMISSION_MODE_VALUES, PLUGIN_PROVIDER_REASONING_LEVEL_VALUES, PROVIDER_ID_PATTERN, RESERVED_AGENT_TOOL_NAMES, RESERVED_BB_CLI_COMMANDS, RPC_METHOD_PATTERN, SETTING_KEY_PATTERN, adoptHttpRouteResponse, assertNoRecursiveJsonSchemaReferences, enforcePluginCliOutputLimit, isPluginMentionTrigger, isStandardSchema, isZodSchemaLike, normalizeMentionProviderTriggers, readRpcMethodContract, registerSettingDescriptors, summarizeParseIssues, validatePluginProviderDeclaration, validateSettingsUpdate };
+export { AGENT_TOOL_NAME_PATTERN, BACKGROUND_NAME_PATTERN, CLI_COMMAND_NAME_PATTERN, KV_VALUE_MAX_BYTES, MENTION_PROVIDER_ID_PATTERN, PLUGIN_AGENT_DYNAMIC_INSTRUCTIONS_MAX_CHARS, PLUGIN_AGENT_SELECTION_MAX_IDS, PLUGIN_AGENT_STATIC_INSTRUCTIONS_MAX_CHARS, PLUGIN_AGENT_STATUS_LABEL_MAX_CHARS, PLUGIN_AGENT_TOOL_PARAMETERS_MAX_BYTES, PLUGIN_HTTP_CORS_MAX_ORIGINS, PLUGIN_HTTP_METHODS, PLUGIN_MENTION_TRIGGER_VALUES, PLUGIN_PROVIDER_COMPOSER_ACTION_VALUES, PLUGIN_PROVIDER_DISPLAY_NAME_MAX_CHARS, PLUGIN_PROVIDER_PERMISSION_MODE_VALUES, PLUGIN_PROVIDER_REASONING_LEVEL_VALUES, PROVIDER_ID_PATTERN, RESERVED_AGENT_TOOL_NAMES, RESERVED_BB_CLI_COMMANDS, RPC_METHOD_PATTERN, SETTING_KEY_PATTERN, adoptHttpRouteResponse, assertNoRecursiveJsonSchemaReferences, enforcePluginCliOutputLimit, isPluginMentionTrigger, isStandardSchema, isZodSchemaLike, normalizeMentionProviderTriggers, normalizePluginHttpRouteCorsOrigins, readRpcMethodContract, registerSettingDescriptors, summarizeParseIssues, validatePluginProviderDeclaration, validateSettingsUpdate };

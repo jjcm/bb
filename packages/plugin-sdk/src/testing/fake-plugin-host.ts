@@ -17,6 +17,7 @@ import {
   KV_VALUE_MAX_BYTES,
   MENTION_PROVIDER_ID_PATTERN,
   normalizeMentionProviderTriggers,
+  normalizePluginHttpRouteCorsOrigins,
   PLUGIN_AGENT_DYNAMIC_INSTRUCTIONS_MAX_CHARS,
   PLUGIN_AGENT_SELECTION_MAX_IDS,
   PLUGIN_AGENT_STATIC_INSTRUCTIONS_MAX_CHARS,
@@ -108,8 +109,9 @@ import {
  *   the host's shared file), secret settings alongside plain values (no files).
  * - `bb.sdk` is always bound (no listen gate) and every unstubbed method
  *   throws instead of hitting a server.
- * - http auth modes are recorded but not enforced — signature checks and
- *   token handling inside handlers still run.
+ * - http auth modes and cors origin declarations are validated and recorded
+ *   but not enforced — signature checks and token handling inside handlers
+ *   still run, and no CORS middleware is simulated.
  * - background services/schedules never run on timers; `harness.runService`
  *   and `harness.runSchedule` invoke them deterministically.
  */
@@ -136,6 +138,8 @@ export interface FakeHttpRouteRecord {
   method: string;
   path: string;
   auth: PluginHttpAuthMode;
+  /** Normalized `experimental_cors.origins` ([] when the route declared none). */
+  corsOrigins: readonly string[];
   handler: PluginHttpHandler;
 }
 
@@ -988,6 +992,12 @@ function createFakePluginHostInternal(
           `invalid auth mode "${String(auth)}" for ${normalizedMethod} ${path} — use "local", "token", or "none"`,
         );
       }
+      const corsOrigins = normalizePluginHttpRouteCorsOrigins({
+        method: normalizedMethod,
+        path,
+        auth,
+        cors: opts?.experimental_cors,
+      });
       if (
         httpRoutes.some(
           (route) => route.method === normalizedMethod && route.path === path,
@@ -997,7 +1007,13 @@ function createFakePluginHostInternal(
           `http route ${normalizedMethod} ${path} is already registered`,
         );
       }
-      httpRoutes.push({ method: normalizedMethod, path, auth, handler });
+      httpRoutes.push({
+        method: normalizedMethod,
+        path,
+        auth,
+        corsOrigins,
+        handler,
+      });
     },
   };
 

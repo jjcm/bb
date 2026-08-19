@@ -177,6 +177,46 @@ function notRunningError(
   return `plugin "${id}" is not running (status: ${lookup.status}${detail})`;
 }
 
+/** Mirrors the wire dispatcher's path parsing (`/plugins/:id/http/*`). */
+const PLUGIN_WIRE_HTTP_ROUTE_PATTERN =
+  /^\/api\/v1\/plugins\/([^/]+)\/http(?=\/|$)/u;
+
+/**
+ * Whether a plugin HTTP route declared `origin` in its `experimental_cors`
+ * allowlist. Consulted by the server's global CORS middleware so declared
+ * external web apps can complete preflights and read responses on that
+ * route; everything else (other paths, undeclared origins, unknown or
+ * not-running plugins) stays denied exactly as before.
+ *
+ * For a preflight the effective method is `Access-Control-Request-Method` —
+ * the browser asks on behalf of the actual request, and the plugin's own
+ * OPTIONS handlers are never consulted for CORS (preflights are host-owned).
+ */
+export function pluginWireCorsAllowsOrigin(
+  plugins: PluginService,
+  context: Context,
+  origin: string,
+): boolean {
+  const path = context.req.path;
+  const match = PLUGIN_WIRE_HTTP_ROUTE_PATTERN.exec(path);
+  if (match === null) {
+    return false;
+  }
+  const id = match[1] ?? "";
+  const subPath = path.slice(match[0].length) || "/";
+  const method =
+    context.req.method.toUpperCase() === "OPTIONS"
+      ? (context.req.header("access-control-request-method") ?? "")
+      : context.req.method;
+  if (method === "") {
+    return false;
+  }
+  const lookup = plugins.getHttpRoute(id, method, subPath);
+  return (
+    lookup.outcome === "found" && lookup.value.corsOrigins.includes(origin)
+  );
+}
+
 /**
  * Plugin management routes plus the boot-time wire dispatchers
  * (/plugins/:id/http/* and /plugins/:id/rpc/:method). Mounted under /api/v1

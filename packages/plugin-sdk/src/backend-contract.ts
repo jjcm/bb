@@ -171,6 +171,30 @@ export type PluginHttpHandler = (
   context: Context,
 ) => Response | Promise<Response>;
 
+/**
+ * Cross-origin browser access for one "token" or "none" route (experimental —
+ * see docs/api_to_audit.md before relying on it).
+ *
+ * By default a route is reachable cross-origin (token/none auth is not an
+ * origin check) but not *usable* from a browser page on a foreign origin: the
+ * server answers CORS preflights only for local BB app origins, so a
+ * preflighted request (JSON content-type, the x-bb-plugin-token header) is
+ * blocked and even a simple request's response stays unreadable. Declaring
+ * origins here makes the host answer preflights and stamp
+ * `Access-Control-Allow-Origin` for exactly those origins on this route, so an
+ * external web app (e.g. a design tool's "send to bb" button) can complete a
+ * request/response round trip against the local server. Credentials
+ * (cookies) are never allowed; authenticate with the plugin token instead.
+ */
+export interface PluginHttpRouteCorsOptions {
+  /**
+   * Exact serialized http(s) origins (e.g. "https://app.example",
+   * "http://localhost:3000") — at most 16, no wildcards, no "null", no
+   * trailing slash. Compared verbatim against the browser's Origin header.
+   */
+  origins: readonly string[];
+}
+
 export interface PluginHttp {
   /**
    * Register an HTTP route, mounted at
@@ -180,12 +204,20 @@ export interface PluginHttp {
    * - "token": requires the per-plugin token (`bb plugin token <id>`) via
    *   the x-bb-plugin-token header or ?token=.
    * - "none": no checks — only for signature-verified webhooks.
+   *
+   * `experimental_cors` (token/none routes only) declares external web
+   * origins whose browser pages may call this route; see
+   * {@link PluginHttpRouteCorsOptions}. Preflights are host-owned: a
+   * registered OPTIONS handler is never invoked for CORS preflights.
    */
   route(
     method: string,
     path: string,
     handler: PluginHttpHandler,
-    opts?: { auth?: PluginHttpAuthMode },
+    opts?: {
+      auth?: PluginHttpAuthMode;
+      experimental_cors?: PluginHttpRouteCorsOptions;
+    },
   ): void;
 }
 
