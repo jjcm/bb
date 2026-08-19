@@ -45,6 +45,7 @@ const EXPECTED_BACKEND_ROOT_TYPE_EXPORTS = [
   "PluginHttp",
   "PluginHttpAuthMode",
   "PluginHttpHandler",
+  "PluginHttpRouteCorsOptions",
   "PluginInteractionCancelReason",
   "PluginInteractionRequest",
   "PluginInteractionResult",

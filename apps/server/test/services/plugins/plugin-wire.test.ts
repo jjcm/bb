@@ -42,6 +42,10 @@ const WIRE_SOURCE = `
     bb.http.route("GET", "/open", (c: any) => c.json({ open: true }), {
       auth: "none",
     });
+    bb.http.route("POST", "/build", (c: any) => c.json({ built: true }), {
+      auth: "token",
+      experimental_cors: { origins: ["https://diffui.example"] },
+    });
     bb.http.route("GET", "/boom", () => {
       throw new Error("route boom");
     });
@@ -390,6 +394,178 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ open: true });
+  });
+
+  // experimental_cors: a route-declared origin allowlist lets an external web
+  // app complete the browser CORS exchange against a token/none route. The
+  // global cors middleware answers every preflight itself (plugin OPTIONS
+  // handlers never see CORS preflights), so these run through the full app.
+  describe("experimental_cors on token/none routes", () => {
+    const DECLARED_ORIGIN = "https://diffui.example";
+
+    it("answers the preflight for a declared origin, method-matched", async () => {
+      const preflight = await harness.app.request(
+        `${BASE}/api/v1/plugins/wire/http/build`,
+        {
+          method: "OPTIONS",
+          headers: {
+            origin: DECLARED_ORIGIN,
+            "access-control-request-method": "POST",
+            "access-control-request-headers": "content-type,x-bb-plugin-token",
+          },
+        },
+      );
+      expect(preflight.status).toBe(204);
+      expect(preflight.headers.get("access-control-allow-origin")).toBe(
+        DECLARED_ORIGIN,
+      );
+      expect(preflight.headers.get("access-control-allow-methods")).toContain(
+        "POST",
+      );
+      expect(preflight.headers.get("access-control-allow-headers")).toContain(
+        "x-bb-plugin-token",
+      );
+      // Auth stays the plugin token, never cookies.
+      expect(
+        preflight.headers.get("access-control-allow-credentials"),
+      ).toBeNull();
+    });
+
+    it("denies preflights for undeclared origins, methods, and routes", async () => {
+      const undeclaredOrigin = await harness.app.request(
+        `${BASE}/api/v1/plugins/wire/http/build`,
+        {
+          method: "OPTIONS",
+          headers: {
+            origin: EVIL_ORIGIN,
+            "access-control-request-method": "POST",
+          },
+        },
+      );
+      expect(
+        undeclaredOrigin.headers.get("access-control-allow-origin"),
+      ).toBeNull();
+
+      // The allowlist is per method+path: no DELETE /build route exists.
+      const undeclaredMethod = await harness.app.request(
+        `${BASE}/api/v1/plugins/wire/http/build`,
+        {
+          method: "OPTIONS",
+          headers: {
+            origin: DECLARED_ORIGIN,
+            "access-control-request-method": "DELETE",
+          },
+        },
+      );
+      expect(
+        undeclaredMethod.headers.get("access-control-allow-origin"),
+      ).toBeNull();
+
+      // A route without a declaration is unaffected.
+      const undeclaredRoute = await harness.app.request(
+        `${BASE}/api/v1/plugins/wire/http/guarded`,
+        {
+          method: "OPTIONS",
+          headers: {
+            origin: DECLARED_ORIGIN,
+            "access-control-request-method": "GET",
+          },
+        },
+      );
+      expect(
+        undeclaredRoute.headers.get("access-control-allow-origin"),
+      ).toBeNull();
+
+      // Non-plugin API paths keep the local-only allowlist.
+      const coreApi = await harness.app.request(`${BASE}/api/v1/threads`, {
+        method: "OPTIONS",
+        headers: {
+          origin: DECLARED_ORIGIN,
+          "access-control-request-method": "GET",
+        },
+      });
+      expect(coreApi.headers.get("access-control-allow-origin")).toBeNull();
+    });
+
+    it("stamps allow-origin on actual responses for the declared origin only, including a 401", async () => {
+      const issued = await harness.app.request(
+        `${BASE}/api/v1/plugins/wire/token`,
+        { method: "POST" },
+      );
+      const { token } = (await issued.json()) as { token: string };
+
+      const authorized = await harness.app.request(
+        `${BASE}/api/v1/plugins/wire/http/build`,
+        {
+          method: "POST",
+          headers: {
+            origin: DECLARED_ORIGIN,
+            "content-type": "application/json",
+            "x-bb-plugin-token": token,
+          },
+          body: "{}",
+        },
+      );
+      expect(authorized.status).toBe(200);
+      expect(await authorized.json()).toEqual({ built: true });
+      expect(authorized.headers.get("access-control-allow-origin")).toBe(
+        DECLARED_ORIGIN,
+      );
+
+      // A rejected token stays readable by the declared origin, so the
+      // external app can render "reconnect to bb" instead of a blind failure.
+      const unauthorized = await harness.app.request(
+        `${BASE}/api/v1/plugins/wire/http/build`,
+        {
+          method: "POST",
+          headers: {
+            origin: DECLARED_ORIGIN,
+            "content-type": "application/json",
+          },
+          body: "{}",
+        },
+      );
+      expect(unauthorized.status).toBe(401);
+      expect(unauthorized.headers.get("access-control-allow-origin")).toBe(
+        DECLARED_ORIGIN,
+      );
+
+      // Reachability for other origins is unchanged (token routes were always
+      // origin-exempt), but their responses stay unreadable: no allow-origin.
+      const undeclared = await harness.app.request(
+        `${BASE}/api/v1/plugins/wire/http/build`,
+        {
+          method: "POST",
+          headers: {
+            origin: EVIL_ORIGIN,
+            "content-type": "application/json",
+            "x-bb-plugin-token": token,
+          },
+          body: "{}",
+        },
+      );
+      expect(undeclared.status).toBe(200);
+      expect(undeclared.headers.get("access-control-allow-origin")).toBeNull();
+    });
+
+    it("rejects a declaration on a local-auth route at load time", async () => {
+      const badDir = await writePlugin(
+        join(harness.config.dataDir, "fixtures"),
+        {
+          name: "bb-plugin-badcors",
+          serverSource: `
+            export default function plugin(bb: any) {
+              bb.http.route("GET", "/x", (c: any) => c.json({}), {
+                experimental_cors: { origins: ["https://diffui.example"] },
+              });
+            }
+          `,
+        },
+      );
+      const entry = await harness.pluginService.installPath(badDir);
+      expect(entry.status).toBe("error");
+      expect(entry.statusDetail).toContain('requires auth "token" or "none"');
+    });
   });
 
   it("maps unknown route → 404, unknown plugin → 404, disabled plugin → 503", async () => {
