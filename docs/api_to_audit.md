@@ -187,6 +187,51 @@ Each label is capped at 80 characters and rendered as a truncating segment.
    only for non-MCP native plugin tools. Confirm that distinction stays sound
    as provider adapters and dynamic-tool provenance evolve.
 
+## `bb.http.route({ experimental_cors })`
+
+**What it does.** Lets one "token" or "none" HTTP route declare an exact-origin
+allowlist (`experimental_cors: { origins: [...] }`, at most 16, validated at
+registration by the shared host policy). The server's global CORS middleware
+consults the live route table for `/api/v1/plugins/<id>/http/*` requests: for a
+declared origin it answers the preflight (method-matched via
+`Access-Control-Request-Method`; preflights stay host-owned, so a plugin's own
+OPTIONS handler is never invoked for them) and stamps
+`Access-Control-Allow-Origin` on the route's actual responses — including auth
+failures, so the external app can render a "reconnect" state instead of a blind
+error. Everything else is unchanged: undeclared origins, other API paths, and
+"local" routes (which reject the option at registration, because their auth IS
+the origin check). Credentials are never allowed; callers authenticate with
+the plugin token.
+
+This completes an existing decision rather than adding reachability: the
+`/api/v1` origin guard already exempts plugin wire paths because token/none
+auth is not an origin check — but without CORS headers a browser page on a
+foreign origin could only fire blind simple requests, never read a response or
+pass a preflight. The first consumer is the DiffUI plugin's "Build with bb"
+handoff from its hosted web app into the local server.
+
+**Audit before stabilizing.**
+
+1. **Origin grammar.** Exact serialized http(s) origins only — no wildcards,
+   no `null`, no subdomain patterns. Confirm real integrations (multi-tenant
+   design tools, per-user preview domains) survive without patterns before
+   freezing, or reject patterns permanently as hostile to auditability.
+2. **Per-route vs. per-plugin.** The allowlist is declared per route
+   (method+path). Confirm that granularity earns its keep once a plugin
+   declares several cross-origin routes, or fold it into one plugin-level
+   declaration.
+3. **Preflight surface.** The middleware reflects hono's defaults
+   (`Access-Control-Allow-Methods` lists the standard set, allow-headers
+   mirrors the request). Confirm the over-broad methods list is harmless
+   enough, or narrow it to the methods actually registered at that path.
+4. **Private Network Access.** Chrome's LNA permission prompt (and the older
+   PNA preflight header) gate public→loopback requests browser-side. Decide
+   whether bb should also answer `Access-Control-Allow-Private-Network` on
+   preflights for declared origins once browser behavior settles.
+5. **Reload windows.** During a plugin reload the route table swaps and a
+   preflight can transiently miss. Confirm retry-on-failure is acceptable
+   for real callers.
+
 ## `bb.agents.experimental_registerProvider`
 
 **What it does.** Lets a plugin declare an agent provider into the server's

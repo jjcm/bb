@@ -3,7 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { terminalWebSocketQuerySchema } from "@bb/server-contract";
 import { compress } from "hono/compress";
 import { cors } from "hono/cors";
@@ -21,7 +21,10 @@ import { registerThreadSectionRoutes } from "./routes/thread-sections.js";
 import { registerSystemRoutes } from "./routes/system.js";
 import { registerTerminalRoutes } from "./routes/terminals.js";
 import { registerThreadRoutes } from "./routes/threads/index.js";
-import { registerPluginRoutes } from "./routes/plugins.js";
+import {
+  pluginWireCorsAllowsOrigin,
+  registerPluginRoutes,
+} from "./routes/plugins.js";
 import { registerPluginCatalogRoutes } from "./routes/plugin-catalog.js";
 import { registerSkillsRegistryRoutes } from "./routes/skills-registry.js";
 import {
@@ -317,6 +320,17 @@ export function createApp(
     }
     return runEventLoopWork(`${context.req.method} ${path}`, next);
   });
+  // Assigned once the plugin service exists below; the middleware body only
+  // runs per request, after createApp returns. Plugin "token"/"none" routes
+  // may declare external web origins (`experimental_cors`) — for exactly
+  // those, this callback also answers, so a declared external app can pass
+  // the preflight and read responses. All other origins keep the local-only
+  // allowlist. Note the cors middleware short-circuits every OPTIONS request,
+  // so plugin OPTIONS handlers are never invoked for CORS preflights.
+  let pluginCorsAllowsOrigin: (
+    context: Context,
+    origin: string,
+  ) => boolean = () => false;
   app.use(
     "*",
     cors({
@@ -326,7 +340,7 @@ export function createApp(
         if (origin === requestOrigin || allowedCorsOrigins.has(origin)) {
           return origin;
         }
-        return null;
+        return pluginCorsAllowsOrigin(context, origin) ? origin : null;
       },
     }),
   );
@@ -454,6 +468,9 @@ export function createApp(
   setPluginThreadEventEmitter(pluginService.events);
   // Bridge runtime-config assembly to plugin skills + context (§4.4).
   setPluginAgentContributions(pluginService);
+  // Bridge the CORS middleware to plugin route cors declarations (§4.6).
+  pluginCorsAllowsOrigin = (context, origin) =>
+    pluginWireCorsAllowsOrigin(pluginService, context, origin);
   const publicApi = new Hono();
   // CORS decides whether a browser may *read* a response; it does not stop the
   // request being sent and acted on. A `no-cors` POST with a simple content
