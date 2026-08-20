@@ -295,8 +295,8 @@ collection manifest at .bb/plugins.json indexes them:
     ]
   }
 
-Every source is a repository-relative directory that starts with "./".
-Absolute paths, "..", and a source that selects the repository root are
+Every source is a repository-relative directory that starts with "./", or "."
+when the repository root is itself the plugin. Absolute paths and ".." are
 rejected, and so are duplicate entry names and unknown fields. The file is an
 index only: identity, branding, entry points, and engine ranges stay in each
 plugin's own manifest.

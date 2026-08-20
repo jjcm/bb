@@ -18,11 +18,18 @@ const COLLECTION_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 /**
  * A collection source is a repository-relative directory written with an
  * explicit "./" prefix, so it never reads as an absolute path, a package
- * name, or a URL.
+ * name, or a URL. The lone exception is ".", the checkout root itself: a
+ * repository whose root is a plugin can still index that plugin by name, so
+ * `--plugin <name>` resolves everywhere instead of failing on exactly the
+ * single-plugin layout. Root is represented as null, matching how an
+ * unselected install already reports it.
  */
-function subdirectoryFromCollectionSource(source: string): string {
+function subdirectoryFromCollectionSource(source: string): string | null {
+  if (source === ".") {
+    return null;
+  }
   if (!source.startsWith("./")) {
-    throw new Error(`source "${source}" must start with "./"`);
+    throw new Error(`source "${source}" must be "." or start with "./"`);
   }
   return normalizePluginSubdirectory(source);
 }
@@ -136,11 +143,14 @@ export async function readPluginCollectionManifest(
   );
 }
 
-/** Resolve a collection entry name to its repository-relative directory. */
+/**
+ * Resolve a collection entry name to its repository-relative directory, or
+ * null when the entry selects the checkout root.
+ */
 export function subdirectoryForCollectionEntry(
   manifest: PluginCollectionManifest,
   name: string,
-): string {
+): string | null {
   const entry = manifest.plugins.find((plugin) => plugin.name === name);
   if (entry === undefined) {
     throw new Error(

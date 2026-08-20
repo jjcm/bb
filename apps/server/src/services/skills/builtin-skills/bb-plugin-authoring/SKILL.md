@@ -235,9 +235,10 @@ root:
 }
 ```
 
-Each `source` is a repository-relative directory that starts with `./`. The
-file is an index only — it never overrides a plugin's identity, branding,
-entry points, or engine ranges. Users install one plugin at a time:
+Each `source` is a repository-relative directory that starts with `./`, or
+`"."` when the repository root is itself the plugin. The file is an index
+only — it never overrides a plugin's identity, branding, entry points, or
+engine ranges. Users install one plugin at a time:
 
 ```sh
 bb plugin install git:https://github.com/acme/bb-plugins.git@main --plugin notes

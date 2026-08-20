@@ -755,10 +755,12 @@ manifest at the repository root indexes them:
 
 The file is strict: `schemaVersion` must be `1`, names match
 `^[a-z0-9][a-z0-9-]*$`, unknown fields and duplicate names are rejected, and
-each `source` is a repository-relative directory starting with `./` — absolute
-paths, `..`, empty segments, and the repository root itself are refused. An
-invalid file is rejected whole. The manifest is an index only; it never
-overrides a plugin's identity, branding, entry points, or engine ranges.
+each `source` is either a repository-relative directory starting with `./` or
+`"."` for the repository root — absolute paths, `..`, and empty segments are
+refused. `"."` lets a repository whose root is itself a plugin still index that
+plugin by name, so `--plugin <name>` resolves on every layout. An invalid file
+is rejected whole. The manifest is an index only; it never overrides a plugin's
+identity, branding, entry points, or engine ranges.
 
 Install one plugin of the repository with
 `bb plugin install git:<url>[@<ref|semver-range>] --plugin <name>` (resolves a collection

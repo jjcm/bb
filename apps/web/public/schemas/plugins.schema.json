@@ -32,7 +32,8 @@
           },
           "source": {
             "type": "string",
-            "pattern": "^\\./(?![A-Za-z]:)(?!(?:[^/]+/)*(?:\\.|\\.\\.|\\.git)(?:/|$))[^/\\\\]+(?:/[^/\\\\]+)*$"
+            "$comment": "A repository-relative directory, or \".\" for the checkout root.",
+            "pattern": "^(?:\\.|\\./(?![A-Za-z]:)(?!(?:[^/]+/)*(?:\\.|\\.\\.|\\.git)(?:/|$))[^/\\\\]+(?:/[^/\\\\]+)*)$"
           }
         }
       }

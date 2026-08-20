@@ -43,13 +43,17 @@ describe("collection manifest schema", () => {
     );
   });
 
-  it("rejects sources that escape or select the repository root", () => {
+  it("indexes a repository whose root is itself the plugin", () => {
+    const parsed = parse([{ name: "diffui", source: "." }]);
+    expect(subdirectoryForCollectionEntry(parsed, "diffui")).toBeNull();
+  });
+
+  it("rejects sources that escape the checkout", () => {
     for (const source of [
       "./../evil",
       "./plugins/../../evil",
       "/etc/passwd",
       "plugins/sidebar",
-      ".",
       "./",
       "./plugins//sidebar",
       "./plugins/sidebar/",
@@ -213,6 +217,19 @@ describe("collection manifest in a checkout", () => {
         sourceLabel: "repo",
       }),
     ).rejects.toThrowError(/no \.bb\/plugins\.json collection manifest/);
+  });
+
+  it('resolves an entry sourced at "." to the checkout root', async () => {
+    await writeCollection([{ name: "root", source: "." }]);
+    await writeRootPackage();
+
+    expect(
+      await resolveSelectedSubdirectory({
+        checkoutDir: repoDir,
+        selection: { kind: "entry", name: "root" },
+        sourceLabel: "repo",
+      }),
+    ).toBeNull();
   });
 
   it("rejects a --subdirectory that escapes the checkout", async () => {
